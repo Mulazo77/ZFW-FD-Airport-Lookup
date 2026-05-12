@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZFW FDU Airport Locator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="title">ZFW FDU OPERATIONAL AIRPORT LOOKUP</div>
+    <div id="zuluClock" class="zulu-clock">--:--:--Z</div>
+  </header>
+
+  <main class="app">
+    <section class="search-row">
+      <label for="airportInput">AIRPORT IDENTIFIER</label>
+      <input id="airportInput" type="text" autocomplete="off" autofocus maxlength="5" />
+      <div id="status" class="status">Ready</div>
+    </section>
+
+    <section class="grid">
+      <div id="sectorCard" class="card"><div class="card-title">SECTOR</div><div id="sector" class="card-value">—</div></div>
+      <div id="areaCard" class="card"><div class="card-title">AREA</div><div id="area" class="card-value">—</div></div>
+      <div id="approachCard" class="card"><div class="card-title">APPROACH</div><div id="approach" class="card-value">—</div></div>
+      <div id="vscsCard" class="card"><div class="card-title">APP VSCS</div><div id="vscs" class="card-value">—</div></div>
+      <div id="contactCard" class="card"><div class="card-title">APP CONTACT</div><div id="contact" class="card-value">—</div></div>
+      <div id="hoursCard" class="card"><div class="card-title">APP HOURS</div><div id="hours" class="card-value">—</div></div>
+      <div id="airportNameCard" class="card airport-name-card"><div class="card-title">AIRPORT NAME</div><div id="airportName" class="card-value">—</div></div>
+      <div id="mapCard" class="card map-card"><div class="card-title">ZFW ARTCC AIRSPACE</div><canvas id="zfwMap"></canvas></div>
+    </section>
+  </main>
+
+  <script src="airport_data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

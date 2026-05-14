@@ -1,13 +1,18 @@
 (function(){
   "use strict";
 
+  let lastInputValue = "";
+  let lastDisplayedWx = "";
+
+  function normalizeIdent(value){
+    return String(value || "").trim().toUpperCase();
+  }
+
   function ensureAirportData(){
     if(!window.AIRPORT_DATA) window.AIRPORT_DATA = { records: {} };
     if(!window.AIRPORT_DATA.records) window.AIRPORT_DATA.records = {};
     return window.AIRPORT_DATA.records;
   }
-
-  function normalizeIdent(value){ return String(value || "").trim().toUpperCase(); }
 
   function aliasForIdent(ident){
     ident = normalizeIdent(ident);
@@ -16,26 +21,20 @@
     return "";
   }
 
-  function clone(record){ return JSON.parse(JSON.stringify(record || {})); }
+  function clone(record){
+    return JSON.parse(JSON.stringify(record || {}));
+  }
 
-  function normalizeRecord(ident, sourceRecord){
-    const record = clone(sourceRecord);
-    record.sectors = Array.isArray(record.sectors) ? record.sectors : [];
-    record.areas = Array.isArray(record.areas) ? record.areas : [];
-    record.apps = Array.isArray(record.apps) ? record.apps : [];
-    record.vscs = Array.isArray(record.vscs) ? record.vscs : [];
-    record.contacts = Array.isArray(record.contacts) ? record.contacts : [];
-    record.hours = Array.isArray(record.hours) ? record.hours : [];
-    record.airport_name = record.airport_name || record.name || ident;
+  function getRecord(ident){
+    const records = ensureAirportData();
+    ident = normalizeIdent(ident);
 
-    if(record.latitude_deg !== undefined && record.lat === undefined) record.lat = Number(record.latitude_deg);
-    if(record.longitude_deg !== undefined && record.lon === undefined) record.lon = Number(record.longitude_deg);
-    if(record.lat !== undefined) record.lat = Number(record.lat);
-    if(record.lon !== undefined) record.lon = Number(record.lon);
+    if(records[ident]) return records[ident];
 
-    if(record.nearest_wx) record.nearest_wx = normalizeIdent(record.nearest_wx);
+    const alias = aliasForIdent(ident);
+    if(alias && records[alias]) return records[alias];
 
-    return record;
+    return null;
   }
 
   function mergeUnique(base, add){
@@ -46,12 +45,19 @@
     return out;
   }
 
-  function mergeName(existing, nav, ident){
-    const existingName = existing.airport_name || existing.name || ident;
-    const navName = nav.airport_name || nav.name || ident;
-    if(existingName === navName) return existingName;
-    if(existingName.includes(navName)) return existingName;
-    return existingName + " / " + navName;
+  function normalizeNavRecord(ident, source){
+    const rec = clone(source);
+    rec.sectors = Array.isArray(rec.sectors) ? rec.sectors : [];
+    rec.areas = Array.isArray(rec.areas) ? rec.areas : [];
+    rec.apps = Array.isArray(rec.apps) ? rec.apps : [];
+    rec.vscs = Array.isArray(rec.vscs) ? rec.vscs : [];
+    rec.contacts = Array.isArray(rec.contacts) ? rec.contacts : [];
+    rec.hours = Array.isArray(rec.hours) ? rec.hours : [];
+    rec.airport_name = rec.airport_name || rec.name || ident;
+    if(rec.lat !== undefined) rec.lat = Number(rec.lat);
+    if(rec.lon !== undefined) rec.lon = Number(rec.lon);
+    if(rec.nearest_wx) rec.nearest_wx = normalizeIdent(rec.nearest_wx);
+    return rec;
   }
 
   function mergeNavData(){
@@ -62,21 +68,28 @@
       const ident = normalizeIdent(rawIdent);
       if(!ident) return;
 
-      const nav = normalizeRecord(ident, navData[rawIdent]);
+      const nav = normalizeNavRecord(ident, navData[rawIdent]);
 
       if(records[ident]){
         const existing = records[ident];
-        existing.airport_name = mergeName(existing, nav, ident);
+
+        const existingName = existing.airport_name || existing.name || ident;
+        const navName = nav.airport_name || nav.name || ident;
+        if(navName && existingName && existingName !== navName && !existingName.includes(navName)){
+          existing.airport_name = existingName + " / " + navName;
+        }
+
         existing.sectors = mergeUnique(existing.sectors, nav.sectors);
         existing.areas = mergeUnique(existing.areas, nav.areas);
         existing.apps = mergeUnique(existing.apps, nav.apps);
         existing.vscs = mergeUnique(existing.vscs, nav.vscs);
         existing.contacts = mergeUnique(existing.contacts, nav.contacts);
         existing.hours = mergeUnique(existing.hours, nav.hours);
+
         if(!Number.isFinite(existing.lat) && Number.isFinite(nav.lat)) existing.lat = nav.lat;
         if(!Number.isFinite(existing.lon) && Number.isFinite(nav.lon)) existing.lon = nav.lon;
         if(nav.nearest_wx) existing.nearest_wx = nav.nearest_wx;
-        existing.record_type = existing.record_type || "AIRPORT/NAVAID";
+        existing.record_type = existing.record_type || nav.record_type || "NAVAID";
       } else {
         records[ident] = nav;
       }
@@ -86,20 +99,9 @@
     });
   }
 
-  function getRecord(ident){
-    const records = ensureAirportData();
-    ident = normalizeIdent(ident);
-    if(records[ident]) return records[ident];
-
-    const alias = aliasForIdent(ident);
-    if(alias && records[alias]) return records[alias];
-
-    return null;
-  }
-
   function toRad(deg){ return deg * Math.PI / 180; }
 
-  function nmBetween(aLat,aLon,bLat,bLon){
+  function nmBetween(aLat, aLon, bLat, bLon){
     const R = 3440.065;
     const dLat = toRad(bLat - aLat);
     const dLon = toRad(bLon - aLon);
@@ -116,19 +118,21 @@
     id = normalizeIdent(id);
     const stations = window.ZFW_WEATHER_STATIONS || [];
     const match = stations.find(function(station){
-      return normalizeIdent(station.id) === id || normalizeIdent("K" + station.id) === id;
+      const sid = normalizeIdent(station.id);
+      return sid === id || normalizeIdent("K" + sid) === id;
     });
     return match ? (match.name || "") : "";
   }
 
-  function nearestWeatherStation(record){
+  function calculateNearest(record){
     if(!record) return null;
 
-    // Priority 1: generated/manual nearest_wx from zfw_nav_data.js or Firestore.
-    // This allows every waypoint/navaid to display a PIREP station even when coordinates are missing or approximate.
     if(record.nearest_wx){
       const id = normalizeIdent(record.nearest_wx);
-      return { id: id, name: stationNameById(id) || "Assigned nearest weather reporting station", distanceNm: null };
+      return {
+        id: id,
+        title: stationNameById(id) || "Assigned nearest weather reporting station"
+      };
     }
 
     const stations = window.ZFW_WEATHER_STATIONS || [];
@@ -139,10 +143,16 @@
       if(!Number.isFinite(station.lat) || !Number.isFinite(station.lon)) return;
       const distanceNm = nmBetween(record.lat, record.lon, station.lat, station.lon);
       if(!best || distanceNm < best.distanceNm){
-        best = { id: station.id, name: station.name || "", distanceNm: distanceNm };
+        best = { id: normalizeIdent(station.id), name: station.name || "", distanceNm: distanceNm };
       }
     });
-    return best;
+
+    if(!best) return null;
+
+    return {
+      id: best.id,
+      title: best.name ? best.name + " — " + best.distanceNm.toFixed(1) + " NM" : best.distanceNm.toFixed(1) + " NM"
+    };
   }
 
   function updateNearestWeather(){
@@ -154,45 +164,66 @@
     if(!ident){
       output.textContent = "—";
       output.title = "";
+      lastDisplayedWx = "";
       return;
     }
 
-    const nearest = nearestWeatherStation(getRecord(ident));
+    const record = getRecord(ident);
+    const nearest = calculateNearest(record);
+
     if(!nearest){
       output.textContent = "—";
       output.title = "No nearest weather reporting station assigned.";
+      lastDisplayedWx = "";
       return;
     }
 
     output.textContent = nearest.id;
-    if(nearest.distanceNm === null){
-      output.title = nearest.name || "Assigned nearest weather reporting station";
-    } else {
-      output.title = nearest.name ? nearest.name + " — " + nearest.distanceNm.toFixed(1) + " NM" : nearest.distanceNm.toFixed(1) + " NM";
-    }
+    output.title = nearest.title;
+    lastDisplayedWx = nearest.id;
   }
 
-  function wireNearestWeather(){
+  function scheduleUpdate(){
+    setTimeout(updateNearestWeather, 0);
+    setTimeout(updateNearestWeather, 100);
+    setTimeout(updateNearestWeather, 300);
+    setTimeout(updateNearestWeather, 700);
+  }
+
+  function wire(){
+    mergeNavData();
+
     const input = document.getElementById("airportInput");
-    if(!input) return;
-
-    ["input", "change", "keyup", "blur"].forEach(function(evt){
-      input.addEventListener(evt, function(){
-        setTimeout(updateNearestWeather, 0);
-        setTimeout(updateNearestWeather, 150);
+    if(input){
+      ["input", "change", "keyup", "blur"].forEach(function(evt){
+        input.addEventListener(evt, scheduleUpdate);
       });
-    });
+    }
 
-    updateNearestWeather();
+    // Keep the field synchronized in case app.js writes after our event listener.
+    setInterval(function(){
+      const input = document.getElementById("airportInput");
+      const output = document.getElementById("nearestWeather");
+      if(!input || !output) return;
+
+      const current = normalizeIdent(input.value);
+      const outText = normalizeIdent(output.textContent);
+
+      if(current !== lastInputValue || (current && (!outText || outText === "—" || outText !== lastDisplayedWx))){
+        lastInputValue = current;
+        updateNearestWeather();
+      }
+    }, 500);
+
+    scheduleUpdate();
   }
-
-  mergeNavData();
 
   window.ZFW_UPDATE_NEAREST_WX = updateNearestWeather;
+  window.ZFW_MERGE_NAV_DATA = mergeNavData;
 
   if(document.readyState === "loading"){
-    document.addEventListener("DOMContentLoaded", wireNearestWeather);
+    document.addEventListener("DOMContentLoaded", wire);
   } else {
-    wireNearestWeather();
+    wire();
   }
 })();

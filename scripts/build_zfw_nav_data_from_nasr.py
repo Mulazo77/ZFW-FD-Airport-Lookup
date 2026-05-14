@@ -467,6 +467,16 @@ def main() -> int:
     stations = load_weather_stations(wx_rows)
     assign_nearest_wx(records, stations)
 
+    missing_nearest_wx = sorted([
+        ident for ident, record in records.items()
+        if not record.get("nearest_wx")
+    ])
+
+    # Do not silently generate an operational PIREP database with missing nearest WX assignments.
+    if missing_nearest_wx:
+        print(f"WARNING: {len(missing_nearest_wx)} generated navpoint records are missing nearest_wx.")
+        print("First 50 missing nearest_wx:", ", ".join(missing_nearest_wx[:50]))
+
     Path(args.output).write_text(
         "// Generated from FAA NASR public FIX/NAV CSV data.\n"
         f"// Cycle page: {cycle_page}\n"
@@ -488,6 +498,7 @@ def main() -> int:
         f"Cycle page: {cycle_page}",
         f"Generated navpoint records: {len(records)}",
         f"Generated weather stations: {len(stations)}",
+        f"Records missing nearest_wx: {len(missing_nearest_wx)}",
         "",
         "## Sample required checks",
     ]

@@ -300,9 +300,13 @@
 
       zfwScriptsLoaded = true;
 
+      const status = document.getElementById("status");
       for (const src of ZFW_APP_SCRIPTS) {
+        if (status) status.textContent = "Loading " + src;
+        console.log("Loading", src);
         await loadScriptSequentially(src);
       }
+      if (status) status.textContent = "Ready";
 
       if (typeof loadZfwAppScriptsAfterLogin === "function") {
         loadZfwAppScriptsAfterLogin().catch(function (error) {

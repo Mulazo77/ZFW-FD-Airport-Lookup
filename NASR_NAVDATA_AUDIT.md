@@ -1,15 +1,15 @@
 # ZFW NASR Navdata Audit
 
 Cycle page: https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/2026-05-14
-Generated navpoint records: 10207
+Generated navpoint records: 10210
 Generated weather stations: 0
-Records missing nearest_wx: 10207
+Records missing nearest_wx: 10099
 
 ## Sample required checks
 - WSTEX: FOUND, nearest_wx=, name=WSTEX WAYPOINT
 - EIC: FOUND, nearest_wx=, name=BELCHER
-- CHMLI: FOUND, nearest_wx=, name=CHMLI WAYPOINT
-- BSKAT: FOUND, nearest_wx=, name=BSKAT WAYPOINT
+- CHMLI: FOUND, nearest_wx=HHW, name=CHMLI FIX
+- BSKAT: FOUND, nearest_wx=TXK, name=BSKAT FIX
 - VEEDE: FOUND, nearest_wx=, name=VEEDE WAYPOINT
 - WUNUR: FOUND, nearest_wx=, name=WUNUR WAYPOINT
 - ZOOOO: FOUND, nearest_wx=, name=ZOOOO WAYPOINT

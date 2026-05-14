@@ -217,7 +217,7 @@
       display: flex !important;
       justify-content: center !important;
       align-items: center !important;
-      gap: 14px !important;
+      gap: 16px !important;
       flex-wrap: wrap !important;
       clear: both !important;
     }
@@ -231,18 +231,18 @@
       display: flex !important;
       justify-content: center !important;
       align-items: center !important;
-      gap: 14px !important;
+      gap: 16px !important;
       flex-wrap: wrap !important;
     }
 
     .bottom-correction-zone button {
-      flex: 0 0 430px !important;
-      width: 430px !important;
-      max-width: 430px !important;
-      min-width: 430px !important;
+      flex: 0 0 560px !important;
+      width: 560px !important;
+      min-width: 560px !important;
+      max-width: 560px !important;
       height: 42px !important;
       min-height: 42px !important;
-      padding: 0 12px !important;
+      padding: 0 18px !important;
       border: 0 !important;
       border-radius: 14px !important;
       color: #ffffff !important;
@@ -255,14 +255,13 @@
       align-items: center !important;
       justify-content: center !important;
       white-space: nowrap !important;
-      overflow: hidden !important;
-      text-overflow: clip !important;
+      overflow: visible !important;
       box-sizing: border-box !important;
       cursor: pointer !important;
       box-shadow: none !important;
     }
 
-    .bottom-correction-zone button:first-of-type {
+    .bottom-correction-zone button:nth-of-type(1) {
       background: #156082 !important;
     }
 
@@ -271,13 +270,23 @@
       background: #64748b !important;
     }
 
-    @media (max-width: 1050px) {
+    @media (max-width: 1750px) {
       .bottom-correction-zone button {
-        flex-basis: 400px !important;
-        width: 400px !important;
-        min-width: 400px !important;
-        max-width: 400px !important;
+        flex-basis: 500px !important;
+        width: 500px !important;
+        min-width: 500px !important;
+        max-width: 500px !important;
         font-size: 0.82rem !important;
+      }
+    }
+
+    @media (max-width: 1550px) {
+      .bottom-correction-zone button {
+        flex-basis: 460px !important;
+        width: 460px !important;
+        min-width: 460px !important;
+        max-width: 460px !important;
+        font-size: 0.78rem !important;
       }
     }
   </style>
@@ -473,9 +482,7 @@
           return (btn.textContent || "").trim() === label;
         });
 
-        if (button && button.parentElement !== bottomZone) {
-          bottomZone.appendChild(button);
-        } else if (button && button.parentElement === bottomZone) {
+        if (button) {
           bottomZone.appendChild(button);
         }
       });

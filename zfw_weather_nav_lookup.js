@@ -4,6 +4,7 @@
   let lastLookupIdent = "";
   let lastDisplayedWx = "";
   let lastDisplayedTitle = "";
+  let lastFoundWasNav = false;
 
   function normalizeIdent(value){ return String(value || "").trim().toUpperCase(); }
 
@@ -60,16 +61,21 @@
     rec.vscs = Array.isArray(rec.vscs) ? rec.vscs : [];
     rec.contacts = Array.isArray(rec.contacts) ? rec.contacts : [];
     rec.hours = Array.isArray(rec.hours) ? rec.hours : [];
-    rec.airport_name = rec.airport_name || rec.name || (ident + " FIX");
+    rec.airport_name = rec.airport_name || rec.name || (ident + " NAVAID");
     if(rec.lat !== undefined) rec.lat = Number(rec.lat);
     if(rec.lon !== undefined) rec.lon = Number(rec.lon);
     if(rec.nearest_wx) rec.nearest_wx = normalizeIdent(rec.nearest_wx);
-    if(!rec.record_type) rec.record_type = "WAYPOINT";
+    if(!rec.record_type) rec.record_type = "NAVAID";
     return rec;
   }
 
   function sourceNavData(){
-    return Object.assign({}, window.ZFW_NAV_DATA || {}, window.ZFW_SUPPLEMENTAL_WAYPOINTS || {});
+    return Object.assign(
+      {},
+      window.ZFW_NAV_DATA || {},
+      window.ZFW_SUPPLEMENTAL_NAVAIDS || {},
+      window.ZFW_SUPPLEMENTAL_WAYPOINTS || {}
+    );
   }
 
   function mergeNavData(){
@@ -79,8 +85,6 @@
     Object.keys(navData).forEach(function(rawIdent){
       let ident = normalizeIdent(rawIdent);
       if(!ident) return;
-
-      // Navaids/fixes/waypoints do not use K-prefixes.
       if(ident.length === 4 && ident.startsWith("K")) ident = ident.slice(1);
 
       const nav = normalizeNavRecord(ident, navData[rawIdent]);
@@ -89,6 +93,7 @@
         const existing = records[ident];
         const existingName = existing.airport_name || existing.name || ident;
         const navName = nav.airport_name || nav.name || ident;
+
         if(navName && existingName && existingName !== navName && !existingName.includes(navName)){
           existing.airport_name = existingName + " / " + navName;
         }
@@ -102,16 +107,13 @@
         if(!Number.isFinite(existing.lat) && Number.isFinite(nav.lat)) existing.lat = nav.lat;
         if(!Number.isFinite(existing.lon) && Number.isFinite(nav.lon)) existing.lon = nav.lon;
         if(nav.nearest_wx) existing.nearest_wx = nav.nearest_wx;
-        existing.record_type = existing.record_type || nav.record_type || "WAYPOINT";
+        existing.record_type = existing.record_type || nav.record_type || "NAVAID";
       } else {
         records[ident] = nav;
       }
 
-      // Cleanup fake K aliases for navpoints.
       const fakeK = "K" + ident;
-      if(records[fakeK] && !isAirportRecord(records[fakeK])){
-        delete records[fakeK];
-      }
+      if(records[fakeK] && !isAirportRecord(records[fakeK])) delete records[fakeK];
     });
   }
 
@@ -157,25 +159,31 @@
     return { id: best.id, title: best.name ? best.name + " — " + best.distanceNm.toFixed(1) + " NM" : best.distanceNm.toFixed(1) + " NM" };
   }
 
-  function writeNearest(output, nearest, ident){
+  function writeNearest(output, nearest, ident, record){
     output.textContent = nearest.id;
     output.title = nearest.title || "";
     lastLookupIdent = ident || lastLookupIdent;
     lastDisplayedWx = nearest.id;
     lastDisplayedTitle = nearest.title || "";
+    lastFoundWasNav = isNavType(record);
+    clearFalseNoMatch(record);
   }
 
   function restoreLast(output){
     if(!lastDisplayedWx) return false;
     output.textContent = lastDisplayedWx;
     output.title = lastDisplayedTitle || "";
+    if(lastFoundWasNav) clearFalseNoMatch({record_type:"NAVAID"});
     return true;
   }
 
-  function setStatusFoundNav(ident){
+  function clearFalseNoMatch(record){
+    if(!record || !isNavType(record)) return;
     const status = document.getElementById("status");
-    const record = getRecord(ident);
-    if(status && record && isNavType(record)){
+    if(!status) return;
+
+    const txt = normalizeIdent(status.textContent);
+    if(txt.includes("NO MATCH") || txt.includes("NOT FOUND") || txt === "" || txt === "READY"){
       status.textContent = "Found";
       status.classList.remove("error", "not-found");
     }
@@ -193,18 +201,19 @@
     }
 
     const record = getRecord(typedIdent);
-    const nearest = calculateNearest(record);
+    if(record && isNavType(record)) clearFalseNoMatch(record);
 
+    const nearest = calculateNearest(record);
     if(!nearest){
       output.textContent = "—";
       output.title = "No nearest weather reporting station assigned.";
       lastDisplayedWx = "";
       lastDisplayedTitle = "";
+      lastFoundWasNav = false;
       return;
     }
 
-    writeNearest(output, nearest, typedIdent);
-    setStatusFoundNav(typedIdent);
+    writeNearest(output, nearest, typedIdent, record);
   }
 
   function scheduleUpdate(){
@@ -212,6 +221,7 @@
     setTimeout(updateNearestWeather, 100);
     setTimeout(updateNearestWeather, 300);
     setTimeout(updateNearestWeather, 700);
+    setTimeout(updateNearestWeather, 1200);
   }
 
   function wire(){
@@ -225,6 +235,7 @@
     setInterval(function(){
       const input = document.getElementById("airportInput");
       const output = document.getElementById("nearestWeather");
+      const status = document.getElementById("status");
       if(!input || !output) return;
 
       const typedIdent = normalizeIdent(input.value);
@@ -232,10 +243,14 @@
 
       if(typedIdent){
         updateNearestWeather();
-      } else if(lastDisplayedWx && (!outText || outText === "—")){
-        restoreLast(output);
+      } else {
+        if(lastDisplayedWx && (!outText || outText === "—")) restoreLast(output);
+        if(lastFoundWasNav && status && normalizeIdent(status.textContent).includes("NO MATCH")){
+          status.textContent = "Found";
+          status.classList.remove("error", "not-found");
+        }
       }
-    }, 500);
+    }, 400);
 
     scheduleUpdate();
   }

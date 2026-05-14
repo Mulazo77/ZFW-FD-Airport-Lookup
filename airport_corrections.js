@@ -804,7 +804,7 @@
       areas: [],
       apps: [],
       vscs: [],
-      contacts: form.notes.value.trim() ? [form.notes.value.trim()] : [],
+      contacts: [],
       hours: [],
       airport_name: ident,
       record_type: form.recordType.value || "WAYPOINT",
@@ -881,7 +881,7 @@
     modal.innerHTML = `
       <div class="correction-panel" role="dialog" aria-modal="true" aria-labelledby="pirepNavModalTitle">
         <h2 id="pirepNavModalTitle">Add or Amend Waypoint/Navaid for PIREP</h2>
-        <p>Use this form for PIREP reference fixes, waypoints, and navaids. Saving an existing identifier replaces the old waypoint/navaid weather station data.</p>
+        <p>Use this form to add PIREP reference fixes (Waypoints/Navaids). Saving an existing identifier replaces the old waypoint/navaid weather station data.</p>
 
         <form id="pirepNavForm">
           <div class="correction-grid">
@@ -903,11 +903,6 @@
               <label for="pirepNearestWx">Nearest Weather Reporting Station</label>
               <input id="pirepNearestWx" name="nearestWx" type="text" maxlength="4" required />
               <div class="correction-help">Enter the valid reporting station identifier only, such as SHV, F00, SPS, GGG.</div>
-            </div>
-
-<div class="correction-field full">
-              <label for="pirepNotes">Notes</label>
-              <textarea id="pirepNotes" name="notes" placeholder="Optional notes for the waypoint/navaid"></textarea>
             </div>
           </div>
 

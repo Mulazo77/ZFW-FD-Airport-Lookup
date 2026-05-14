@@ -662,7 +662,23 @@
       saveCorrections(corrections);
       applyOneCorrection(ident, record);
 
-      showMessage(mode === "add" ? "Airport added for this browser." : "Airport amendment saved and previous data overwritten for this browser.", false);
+      if (window.ZFW_SAVE_SHARED_RECORD) {
+        window.ZFW_SAVE_SHARED_RECORD("airport", ident, record)
+          .then(function (saved) {
+            showMessage(saved
+              ? (mode === "add" ? "Airport added and saved for all PCs." : "Airport amendment saved for all PCs.")
+              : (mode === "add" ? "Airport added locally only. Firebase is not configured." : "Airport amendment saved locally only. Firebase is not configured."),
+              !saved
+            );
+          })
+          .catch(function (error) {
+            console.error(error);
+            showMessage("Airport saved locally, but Firestore save failed. Check Firebase config/rules.", true);
+          });
+      } else {
+        showMessage(mode === "add" ? "Airport added locally only." : "Airport amendment saved locally only.", false);
+      }
+
       refreshCurrentLookup(ident);
 
       setTimeout(closeModal, 600);
@@ -957,7 +973,23 @@
       saveCorrections(corrections);
       applyPirepCorrection(ident, record);
 
-      showPirepMessage("Waypoint/navaid saved and previous data replaced for this browser.", false);
+      if (window.ZFW_SAVE_SHARED_RECORD) {
+        window.ZFW_SAVE_SHARED_RECORD("navpoint", ident, record)
+          .then(function (saved) {
+            showPirepMessage(saved
+              ? "Waypoint/navaid saved for all PCs."
+              : "Waypoint/navaid saved locally only. Firebase is not configured.",
+              !saved
+            );
+          })
+          .catch(function (error) {
+            console.error(error);
+            showPirepMessage("Waypoint/navaid saved locally, but Firestore save failed. Check Firebase config/rules.", true);
+          });
+      } else {
+        showPirepMessage("Waypoint/navaid saved locally only.", false);
+      }
+
       refreshCurrentLookup(ident);
       setTimeout(closePirepModal, 700);
     });

@@ -432,6 +432,36 @@ def load_supplemental_waypoints(path: str = "zfw_supplemental_waypoints.js") -> 
     return clean
 
 
+
+def load_supplemental_js_records(path: str, variable: str) -> Dict[str, Dict]:
+    p = Path(path)
+    if not p.exists():
+        return {}
+    text = p.read_text(encoding="utf-8")
+    m = re.search(rf"window\.{variable}\s*=\s*(\{{.*\}})\s*;?\s*$", text, re.S)
+    if not m:
+        return {}
+    data = json.loads(m.group(1))
+    clean = {}
+    for ident, rec in data.items():
+        ident = re.sub(r"[^A-Z0-9]", "", ident.upper())
+        if ident.startswith("K") and len(ident) == 4:
+            ident = ident[1:]
+        if not ident:
+            continue
+        rec = dict(rec)
+        rec.setdefault("sectors", [])
+        rec.setdefault("areas", [])
+        rec.setdefault("apps", [])
+        rec.setdefault("vscs", [])
+        rec.setdefault("contacts", [])
+        rec.setdefault("hours", [])
+        rec.setdefault("airport_name", f"{ident} NAVAID")
+        rec.setdefault("record_type", "NAVAID")
+        clean[ident] = rec
+    return clean
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cycle-page", default=os.environ.get("NASR_CYCLE_PAGE", "auto"))
@@ -503,6 +533,13 @@ def main() -> int:
 
     supplemental_records = load_supplemental_waypoints()
     for ident, rec in supplemental_records.items():
+        if ident in records:
+            records[ident].update({k: v for k, v in rec.items() if v not in (None, '', [], {})})
+        else:
+            records[ident] = rec
+
+    supplemental_navaid_records = load_supplemental_js_records('zfw_supplemental_navaids.js', 'ZFW_SUPPLEMENTAL_NAVAIDS')
+    for ident, rec in supplemental_navaid_records.items():
         if ident in records:
             records[ident].update({k: v for k, v in rec.items() if v not in (None, '', [], {})})
         else:

@@ -352,7 +352,7 @@
     showMessage("", false);
 
     form.dataset.mode = mode;
-    title.textContent = mode === "add" ? "Add Missing Airport" : "Amend Airport";
+    title.textContent = mode === "add" ? "Add/Amend Airport" : "Amend Airport";
     submitButton.textContent = mode === "add" ? "Add Airport" : "Save Amendment";
 
     if (mode === "amend") {
@@ -363,7 +363,7 @@
           fillFormFromRecord(form, found.ident, found.record);
         } else {
           form.identifier.value = currentIdent;
-          showMessage("No existing record found. Use Add Missing Airport if this is a new airport.", true);
+          showMessage("No existing record found. Use Add/Amend Airport if this is a new airport.", true);
         }
       }
     }
@@ -527,8 +527,7 @@
     tools.id = "correctionTools";
     tools.className = "correction-tools";
     tools.innerHTML = `
-      <button type="button" id="amendAirportButton">Amend Airport Info</button>
-      <button type="button" id="addAirportButton" class="secondary">Add Missing Airport</button>
+      <button type="button" id="amendAirportButton">Add/Amend Airport</button>
     `;
 
     const searchRow = document.querySelector(".search-row");
@@ -615,8 +614,16 @@
     `;
     document.body.appendChild(modal);
 
-    document.getElementById("addAirportButton").addEventListener("click", () => openModal("add"));
-    document.getElementById("amendAirportButton").addEventListener("click", () => openModal("amend"));
+    const addAirportButton = document.getElementById("addAirportButton");
+    const amendAirportButton = document.getElementById("amendAirportButton");
+
+    if (addAirportButton) {
+      addAirportButton.addEventListener("click", () => openModal("combined"));
+    }
+
+    if (amendAirportButton) {
+      amendAirportButton.addEventListener("click", () => openModal("combined"));
+    }
     document.getElementById("correctionCancel").addEventListener("click", closeModal);
 
     modal.addEventListener("click", (event) => {
@@ -647,12 +654,12 @@
       const exists = Boolean(lookupRecord(ident));
 
       if (mode === "add" && exists) {
-        showMessage("That airport already exists. Use Amend Airport Info instead.", true);
+        showMessage("That airport already exists. Use Add/Amend Airport instead.", true);
         return;
       }
 
       if (mode === "amend" && !exists) {
-        showMessage("That airport does not exist yet. Use Add Missing Airport instead.", true);
+        showMessage("That airport does not exist yet. Use Add/Amend Airport instead.", true);
         return;
       }
 
@@ -665,8 +672,8 @@
         window.ZFW_SAVE_SHARED_RECORD("airport", ident, record)
           .then(function (saved) {
             showMessage(saved
-              ? (mode === "add" ? "Airport added and saved for all PCs." : "Airport amendment saved for all PCs.")
-              : (mode === "add" ? "Airport added locally only. Firebase is not configured." : "Airport amendment saved locally only. Firebase is not configured."),
+              ? "Airport saved for all PCs."
+              : "Airport saved locally only. Firebase is not configured.",
               !saved
             );
           })
@@ -675,7 +682,7 @@
             showMessage("Airport saved locally, but Firestore save failed. Check Firebase config/rules.", true);
           });
       } else {
-        showMessage(mode === "add" ? "Airport added locally only." : "Airport amendment saved locally only.", false);
+        showMessage("Airport saved locally only.", false);
       }
 
       refreshCurrentLookup(ident);
@@ -869,7 +876,7 @@
       button.type = "button";
       button.id = "addPirepNavButton";
       button.className = "secondary";
-      button.textContent = "Add Waypoint/Navaid for PIREP";
+      button.textContent = "Add/Amend Waypoint/Navaid for PIREP";
       tools.appendChild(button);
       button.addEventListener("click", openPirepModal);
     }
@@ -880,8 +887,8 @@
     modal.setAttribute("aria-hidden", "true");
     modal.innerHTML = `
       <div class="correction-panel" role="dialog" aria-modal="true" aria-labelledby="pirepNavModalTitle">
-        <h2 id="pirepNavModalTitle">Add or Amend Waypoint/Navaid for PIREP</h2>
-        <p>Use this form to add PIREP reference fixes (Waypoints/Navaids). Saving an existing identifier replaces the old waypoint/navaid weather station data.</p>
+        <h2 id="pirepNavModalTitle">Add/Amend Waypoint/Navaid for PIREP</h2>
+        <p>Use this form to add/amend PIREP reference fixes (Waypoints/Navaids). Saving an existing identifier replaces the old waypoint/navaid weather station data.</p>
 
         <form id="pirepNavForm">
           <div class="correction-grid">
@@ -979,3 +986,100 @@ const corrections = loadCorrections();
     createPirepUi();
   }
 })();
+
+
+/* Combined Add/Amend button behavior */
+(function () {
+  "use strict";
+
+  function normalizeIdent(value) {
+    return String(value || "").trim().toUpperCase();
+  }
+
+  function getAirportRecords() {
+    if (!window.AIRPORT_DATA) window.AIRPORT_DATA = { records: {} };
+    if (!window.AIRPORT_DATA.records) window.AIRPORT_DATA.records = {};
+    return window.AIRPORT_DATA.records;
+  }
+
+  function airportExists(ident) {
+    ident = normalizeIdent(ident);
+    const records = getAirportRecords();
+    if (records[ident]) return true;
+    if (ident.length === 4 && ident.startsWith("K") && records[ident.slice(1)]) return true;
+    if (ident.length === 3 && records["K" + ident]) return true;
+    return false;
+  }
+
+  function createCombinedButtonCleanup() {
+    const addAirportButton = document.getElementById("addAirportButton");
+    const amendAirportButton = document.getElementById("amendAirportButton");
+
+    if (amendAirportButton) {
+      amendAirportButton.textContent = "Add/Amend Airport";
+      amendAirportButton.style.display = "";
+    }
+
+    if (addAirportButton && amendAirportButton && addAirportButton !== amendAirportButton) {
+      addAirportButton.style.display = "none";
+    } else if (addAirportButton) {
+      addAirportButton.textContent = "Add/Amend Airport";
+    }
+
+    const pirepButton = document.getElementById("addPirepNavButton");
+    if (pirepButton) {
+      pirepButton.textContent = "Add/Amend Waypoint/Navaid for PIREP";
+    }
+  }
+
+  function patchAirportFormSubmit() {
+    const form = document.getElementById("correctionForm");
+    if (!form || form.dataset.combinedAddAmendPatched === "true") return;
+
+    form.dataset.combinedAddAmendPatched = "true";
+
+    // Force all airport corrections through amend mode. The existing submit logic
+    // treats amend as replace when record exists and add when record does not, after this patch.
+    form.addEventListener("submit", function () {
+      form.dataset.mode = "combined";
+    }, true);
+  }
+
+  // Patch the legacy modal title after it opens.
+  function patchModalText() {
+    const title = document.getElementById("correctionModalTitle");
+    const submit = document.getElementById("correctionSubmit");
+    if (title) title.textContent = "Add/Amend Airport";
+    if (submit) submit.textContent = "Save Airport";
+  }
+
+  function observeModal() {
+    const modal = document.getElementById("correctionModal");
+    if (!modal || !window.MutationObserver) return;
+
+    new MutationObserver(function () {
+      if (modal.getAttribute("aria-hidden") === "false") {
+        patchModalText();
+        patchAirportFormSubmit();
+      }
+    }).observe(modal, { attributes: true, attributeFilter: ["aria-hidden"] });
+  }
+
+  function boot() {
+    createCombinedButtonCleanup();
+    patchAirportFormSubmit();
+    observeModal();
+
+    setInterval(function () {
+      createCombinedButtonCleanup();
+      patchModalText();
+    }, 500);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+})();
+

@@ -868,7 +868,7 @@
     modal.innerHTML = `
       <div class="correction-panel" role="dialog" aria-modal="true" aria-labelledby="pirepNavModalTitle">
         <h2 id="pirepNavModalTitle">Add or Amend Waypoint/Navaid for PIREP</h2>
-        <p>Use this form for PIREP reference fixes, VORs, VORTACs, and waypoints. Saving an existing identifier replaces the old waypoint/navaid weather station data.</p>
+        <p>Use this form for PIREP reference fixes, waypoints, and navaids. Saving an existing identifier replaces the old waypoint/navaid weather station data.</p>
 
         <form id="pirepNavForm">
           <div class="correction-grid">
@@ -883,8 +883,6 @@
               <select id="pirepRecordType" name="recordType">
                 <option value="WAYPOINT">Waypoint</option>
                 <option value="NAVAID">Navaid</option>
-                <option value="VOR">VOR</option>
-                <option value="VORTAC">VORTAC</option>
               </select>
             </div>
 

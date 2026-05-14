@@ -33,6 +33,8 @@
     if(record.lat !== undefined) record.lat = Number(record.lat);
     if(record.lon !== undefined) record.lon = Number(record.lon);
 
+    if(record.nearest_wx) record.nearest_wx = normalizeIdent(record.nearest_wx);
+
     return record;
   }
 
@@ -73,6 +75,7 @@
         existing.hours = mergeUnique(existing.hours, nav.hours);
         if(!Number.isFinite(existing.lat) && Number.isFinite(nav.lat)) existing.lat = nav.lat;
         if(!Number.isFinite(existing.lon) && Number.isFinite(nav.lon)) existing.lon = nav.lon;
+        if(nav.nearest_wx) existing.nearest_wx = nav.nearest_wx;
         existing.record_type = existing.record_type || "AIRPORT/NAVAID";
       } else {
         records[ident] = nav;
@@ -109,13 +112,27 @@
     return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
   }
 
-  function nearestWeatherStation(record){
+  function stationNameById(id){
+    id = normalizeIdent(id);
     const stations = window.ZFW_WEATHER_STATIONS || [];
-    if(!record || !Number.isFinite(record.lat) || !Number.isFinite(record.lon) || !stations.length) return null;
+    const match = stations.find(function(station){
+      return normalizeIdent(station.id) === id || normalizeIdent("K" + station.id) === id;
+    });
+    return match ? (match.name || "") : "";
+  }
 
+  function nearestWeatherStation(record){
+    if(!record) return null;
+
+    // Priority 1: generated/manual nearest_wx from zfw_nav_data.js or Firestore.
+    // This allows every waypoint/navaid to display a PIREP station even when coordinates are missing or approximate.
     if(record.nearest_wx){
-      return { id: String(record.nearest_wx).toUpperCase(), name: "Manually assigned", distanceNm: null };
+      const id = normalizeIdent(record.nearest_wx);
+      return { id: id, name: stationNameById(id) || "Assigned nearest weather reporting station", distanceNm: null };
     }
+
+    const stations = window.ZFW_WEATHER_STATIONS || [];
+    if(!Number.isFinite(record.lat) || !Number.isFinite(record.lon) || !stations.length) return null;
 
     let best = null;
     stations.forEach(function(station){
@@ -143,13 +160,13 @@
     const nearest = nearestWeatherStation(getRecord(ident));
     if(!nearest){
       output.textContent = "—";
-      output.title = "No location or weather station data available.";
+      output.title = "No nearest weather reporting station assigned.";
       return;
     }
 
     output.textContent = nearest.id;
     if(nearest.distanceNm === null){
-      output.title = nearest.name;
+      output.title = nearest.name || "Assigned nearest weather reporting station";
     } else {
       output.title = nearest.name ? nearest.name + " — " + nearest.distanceNm.toFixed(1) + " NM" : nearest.distanceNm.toFixed(1) + " NM";
     }

@@ -733,8 +733,21 @@
     const airportRecords = getAirportRecords();
 
     ident = normalizeIdent(ident);
+
+    // Navaids/waypoints are FAA identifiers, not airports. Never store a K-prefixed alias.
+    if (ident.length === 4 && ident.startsWith("K")) {
+      ident = ident.slice(1);
+    }
+
+    record.record_type = record.record_type || "WAYPOINT";
+
     delete navData[ident];
     delete airportRecords[ident];
+
+    const fakeK = "K" + ident;
+    if (airportRecords[fakeK] && String(airportRecords[fakeK].record_type || "").toUpperCase() !== "AIRPORT") {
+      delete airportRecords[fakeK];
+    }
 
     navData[ident] = JSON.parse(JSON.stringify(record));
     airportRecords[ident] = JSON.parse(JSON.stringify(record));
@@ -919,8 +932,12 @@
       event.preventDefault();
 
       const result = makePirepRecordFromForm(this);
-      const ident = result.ident;
+      let ident = result.ident;
       const record = result.record;
+
+      if (ident.length === 4 && ident.startsWith("K")) {
+        ident = ident.slice(1);
+      }
 
       if (!ident) {
         showPirepMessage("Waypoint/navaid identifier is required.", true);

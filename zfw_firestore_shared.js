@@ -45,20 +45,32 @@
     ident = normalizeIdent(ident);
     if (!ident) return;
 
-    const clean = clone(record);
+    record = clone(record);
 
     if (type === "airport") {
       const records = getAirportRecords();
-      records[ident] = clean;
+      records[ident] = record;
 
       if (ident.length === 4 && ident.startsWith("K")) {
-        records[ident.slice(1)] = clone(clean);
+        records[ident.slice(1)] = clone(record);
       } else if (ident.length === 3) {
-        records["K" + ident] = clone(clean);
+        records["K" + ident] = clone(record);
       }
     } else {
-      getNavData()[ident] = clean;
-      getAirportRecords()[ident] = clean;
+      // Navaids, fixes, and waypoints never receive K-prefix aliases.
+      if (ident.length === 4 && ident.startsWith("K")) {
+        ident = ident.slice(1);
+      }
+
+      record.record_type = record.record_type || record.type || "WAYPOINT";
+
+      getNavData()[ident] = record;
+      getAirportRecords()[ident] = record;
+
+      const fakeK = "K" + ident;
+      if (getAirportRecords()[fakeK] && String(getAirportRecords()[fakeK].record_type || "").toUpperCase() !== "AIRPORT") {
+        delete getAirportRecords()[fakeK];
+      }
     }
 
     if (window.ZFW_UPDATE_NEAREST_WX) {

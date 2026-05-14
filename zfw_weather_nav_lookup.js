@@ -1,8 +1,9 @@
 (function(){
   "use strict";
 
-  let lastInputValue = "";
+  let lastLookupIdent = "";
   let lastDisplayedWx = "";
+  let lastDisplayedTitle = "";
 
   function normalizeIdent(value){
     return String(value || "").trim().toUpperCase();
@@ -14,10 +15,30 @@
     return window.AIRPORT_DATA.records;
   }
 
-  function aliasForIdent(ident){
+  function isAirportRecord(record){
+    if(!record) return false;
+
+    const type = String(record.record_type || record.type || "").toUpperCase();
+    if(type === "AIRPORT") return true;
+
+    // Baseline airport_data.js records often do not have record_type.
+    // Treat records without nav/fix types as airports only if they have airport-style fields.
+    if(!type && !record.nearest_wx && !["NAVAID","WAYPOINT","FIX","VOR","VORTAC","NDB"].includes(type)){
+      return true;
+    }
+
+    return false;
+  }
+
+  function airportAliasForIdent(ident, record){
     ident = normalizeIdent(ident);
+
+    // Only airport records receive K/3-letter alias support.
+    if(!isAirportRecord(record)) return "";
+
     if(ident.length === 4 && ident.startsWith("K")) return ident.slice(1);
     if(ident.length === 3) return "K" + ident;
+
     return "";
   }
 
@@ -31,8 +52,21 @@
 
     if(records[ident]) return records[ident];
 
-    const alias = aliasForIdent(ident);
-    if(alias && records[alias]) return records[alias];
+    // If user typed K + navaid, do not silently match the navaid.
+    // Only perform K/3-letter aliasing when the target alias is an airport record.
+    if(ident.length === 4 && ident.startsWith("K")){
+      const stripped = ident.slice(1);
+      if(records[stripped] && isAirportRecord(records[stripped])){
+        return records[stripped];
+      }
+    }
+
+    if(ident.length === 3){
+      const kIdent = "K" + ident;
+      if(records[kIdent] && isAirportRecord(records[kIdent])){
+        return records[kIdent];
+      }
+    }
 
     return null;
   }
@@ -57,6 +91,7 @@
     if(rec.lat !== undefined) rec.lat = Number(rec.lat);
     if(rec.lon !== undefined) rec.lon = Number(rec.lon);
     if(rec.nearest_wx) rec.nearest_wx = normalizeIdent(rec.nearest_wx);
+    if(!rec.record_type) rec.record_type = "WAYPOINT";
     return rec;
   }
 
@@ -68,13 +103,15 @@
       const ident = normalizeIdent(rawIdent);
       if(!ident) return;
 
-      const nav = normalizeNavRecord(ident, navData[rawIdent]);
+      // Strip accidental K prefix from navaid/waypoint source records.
+      const cleanIdent = (ident.length === 4 && ident.startsWith("K")) ? ident.slice(1) : ident;
+      const nav = normalizeNavRecord(cleanIdent, navData[rawIdent]);
 
-      if(records[ident]){
-        const existing = records[ident];
+      if(records[cleanIdent]){
+        const existing = records[cleanIdent];
 
-        const existingName = existing.airport_name || existing.name || ident;
-        const navName = nav.airport_name || nav.name || ident;
+        const existingName = existing.airport_name || existing.name || cleanIdent;
+        const navName = nav.airport_name || nav.name || cleanIdent;
         if(navName && existingName && existingName !== navName && !existingName.includes(navName)){
           existing.airport_name = existingName + " / " + navName;
         }
@@ -91,11 +128,23 @@
         if(nav.nearest_wx) existing.nearest_wx = nav.nearest_wx;
         existing.record_type = existing.record_type || nav.record_type || "NAVAID";
       } else {
-        records[ident] = nav;
+        records[cleanIdent] = nav;
       }
 
-      const alias = aliasForIdent(ident);
-      if(alias && !records[alias]) records[alias] = clone(records[ident]);
+      // Critical: no K aliases are created for navaids/waypoints.
+      if(cleanIdent !== ident && records[ident] && !isAirportRecord(records[ident])){
+        delete records[ident];
+      }
+    });
+
+    // Cleanup any accidental fake K aliases created by previous versions for nav/fix records.
+    Object.keys(records).forEach(function(ident){
+      if(ident.length === 4 && ident.startsWith("K")){
+        const stripped = ident.slice(1);
+        if(records[stripped] && !isAirportRecord(records[stripped]) && !isAirportRecord(records[ident])){
+          delete records[ident];
+        }
+      }
     });
   }
 
@@ -155,32 +204,45 @@
     };
   }
 
+  function writeNearest(output, nearest, ident){
+    output.textContent = nearest.id;
+    output.title = nearest.title || "";
+    lastLookupIdent = ident || lastLookupIdent;
+    lastDisplayedWx = nearest.id;
+    lastDisplayedTitle = nearest.title || "";
+  }
+
+  function restoreLast(output){
+    if(!lastDisplayedWx) return false;
+    output.textContent = lastDisplayedWx;
+    output.title = lastDisplayedTitle || "";
+    return true;
+  }
+
   function updateNearestWeather(){
     const input = document.getElementById("airportInput");
     const output = document.getElementById("nearestWeather");
     if(!input || !output) return;
 
-    const ident = normalizeIdent(input.value);
-    if(!ident){
-      output.textContent = "—";
-      output.title = "";
-      lastDisplayedWx = "";
+    const typedIdent = normalizeIdent(input.value);
+
+    if(!typedIdent){
+      restoreLast(output);
       return;
     }
 
-    const record = getRecord(ident);
+    const record = getRecord(typedIdent);
     const nearest = calculateNearest(record);
 
     if(!nearest){
       output.textContent = "—";
       output.title = "No nearest weather reporting station assigned.";
       lastDisplayedWx = "";
+      lastDisplayedTitle = "";
       return;
     }
 
-    output.textContent = nearest.id;
-    output.title = nearest.title;
-    lastDisplayedWx = nearest.id;
+    writeNearest(output, nearest, typedIdent);
   }
 
   function scheduleUpdate(){
@@ -200,18 +262,18 @@
       });
     }
 
-    // Keep the field synchronized in case app.js writes after our event listener.
     setInterval(function(){
       const input = document.getElementById("airportInput");
       const output = document.getElementById("nearestWeather");
       if(!input || !output) return;
 
-      const current = normalizeIdent(input.value);
+      const typedIdent = normalizeIdent(input.value);
       const outText = normalizeIdent(output.textContent);
 
-      if(current !== lastInputValue || (current && (!outText || outText === "—" || outText !== lastDisplayedWx))){
-        lastInputValue = current;
+      if(typedIdent){
         updateNearestWeather();
+      } else if(lastDisplayedWx && (!outText || outText === "—")){
+        restoreLast(output);
       }
     }, 500);
 

@@ -1,6 +1,9 @@
 (function(){
   "use strict";
 
+  let activeAdjacentIdent = "";
+  let inputClearTimer = null;
+
   function normalizeIdent(value){
     return String(value || "").trim().toUpperCase();
   }
@@ -27,10 +30,14 @@
   }
 
   function getAdjacentRecord(ident){
-    const db = window.ZFW_ADJACENT_ARTCC_AIRPORTS || {};
-    const airports = db.airports || {};
+    const airports = window.ZFW_ADJACENT_ARTCC_AIRPORTS?.airports || {};
     for(const alias of aliasesFor(ident)){
-      if(airports[alias]) return { ident: alias.startsWith("K") ? alias.slice(1) : alias, record: airports[alias] };
+      if(airports[alias]){
+        return {
+          ident: alias.startsWith("K") ? alias.slice(1) : alias,
+          record: airports[alias]
+        };
+      }
     }
     return null;
   }
@@ -59,21 +66,32 @@
     });
   }
 
-  function hideMap(){
-    const mapCard = document.querySelector(".map-card") || document.getElementById("zfwMap")?.closest(".card");
-    if(mapCard) mapCard.style.display = "none";
+  function mapCard(){
+    return document.querySelector(".map-card") || document.getElementById("zfwMap")?.closest(".card");
   }
 
-  function setStatus(text, warning){
+  function hideMap(){
+    const card = mapCard();
+    if(card) card.style.display = "none";
+  }
+
+  function showMap(){
+    const card = mapCard();
+    if(card) card.style.display = "";
+  }
+
+  function setStatus(text){
     const status = document.getElementById("status");
     if(status){
       status.textContent = text;
       status.classList.remove("error", "not-found");
-      status.style.color = warning ? "#ffd166" : "";
+      status.style.color = "#ffd166";
     }
   }
 
-  function clearPartial(){
+  function clearPartialDisplay(){
+    activeAdjacentIdent = "";
+
     setText("sector", "—");
     setText("area", "—");
     setText("approach", "—");
@@ -82,15 +100,35 @@
     setText("appHours", "—");
     setText("airportName", "—");
     setText("nearestWeather", "—");
-    hideMap();
-    setStatus("Ready", false);
+
+    showMap();
+
+    const status = document.getElementById("status");
+    if(status){
+      status.textContent = "Ready";
+      status.style.color = "";
+    }
   }
 
-  function showAdjacentFor(inputIdent, adjacent){
-    const currentInput = normalizeIdent(document.getElementById("airportInput")?.value || "");
+  function clearInputSoon(expectedIdent){
+    const input = document.getElementById("airportInput");
+    if(!input) return;
 
-    // If the user has already typed something else, do not apply old results.
-    if(currentInput && currentInput !== inputIdent){
+    clearTimeout(inputClearTimer);
+    inputClearTimer = setTimeout(() => {
+      const current = normalizeIdent(input.value);
+      if(current === expectedIdent || current === "K" + expectedIdent){
+        input.value = "";
+      }
+    }, 650);
+  }
+
+  function showAdjacent(typedIdent, adjacent){
+    const input = document.getElementById("airportInput");
+    const currentInput = normalizeIdent(input?.value || "");
+    const expected = normalizeIdent(typedIdent);
+
+    if(currentInput && currentInput !== expected && currentInput !== "K" + expected){
       return;
     }
 
@@ -101,6 +139,9 @@
     const center = centers[centerId] || {};
     const fdcd = rec.fdcd || center.fdcd || "";
     const displayIdent = adjacent.ident;
+    const statusLine = `${displayIdent}: ${centerId} FD/CD ${fdcd}`;
+
+    activeAdjacentIdent = displayIdent;
 
     clearHighlights();
 
@@ -111,8 +152,6 @@
     setHtml("appContact", `${rec.name || displayIdent} is in ${center.name || centerId + " ARTCC"} airspace. ${centerId} Flight Data Clearance Delivery: ${fdcd}`);
     setText("appHours", "0000-2359");
     setText("airportName", rec.name || displayIdent);
-
-    // Wrong-airspace/adjacent-center lookup does not require PIREP WX.
     setText("nearestWeather", "—");
 
     const contactCard = document.getElementById("appContact")?.closest(".card");
@@ -120,8 +159,9 @@
       contactCard.classList.add("nearest-wx-highlight");
     }
 
-    setStatus(`${displayIdent}: ${centerId} FD/CD ${fdcd}`, true);
+    setStatus(statusLine);
     hideMap();
+    clearInputSoon(displayIdent);
   }
 
   function handleInput(){
@@ -130,32 +170,27 @@
 
     const ident = normalizeIdent(input.value);
 
-    if(!ident){
-      return;
-    }
+    if(!ident) return;
 
     if(ident.length < 3){
-      clearPartial();
+      clearPartialDisplay();
       return;
     }
 
-    if(!isCompleteAirportIdent(ident)){
-      return;
-    }
+    if(!isCompleteAirportIdent(ident)) return;
 
-    // ZFW records always take priority.
-    if(getZfwRecord(ident)){
+    const zfwRecord = getZfwRecord(ident);
+    if(zfwRecord){
+      activeAdjacentIdent = "";
+      showMap();
       return;
     }
 
     const adjacent = getAdjacentRecord(ident);
-    if(!adjacent){
-      return;
-    }
+    if(!adjacent) return;
 
-    // Delayed calls beat the primary app's "no match" output without creating a loop/stutter.
-    [0, 120, 350, 800].forEach(delay => {
-      setTimeout(() => showAdjacentFor(ident, adjacent), delay);
+    [0, 120, 350].forEach(delay => {
+      setTimeout(() => showAdjacent(ident, adjacent), delay);
     });
   }
 
@@ -164,6 +199,26 @@
     if(input){
       ["input", "change", "keyup", "blur"].forEach(evt => input.addEventListener(evt, handleInput));
     }
+
+    setInterval(() => {
+      const input = document.getElementById("airportInput");
+      const typed = normalizeIdent(input?.value || "");
+
+      if(typed && getZfwRecord(typed)){
+        activeAdjacentIdent = "";
+        showMap();
+        return;
+      }
+
+      if(activeAdjacentIdent){
+        hideMap();
+
+        const wx = document.getElementById("nearestWeather");
+        if(wx && normalizeIdent(wx.textContent) !== "—"){
+          setText("nearestWeather", "—");
+        }
+      }
+    }, 300);
   }
 
   if(document.readyState === "loading"){

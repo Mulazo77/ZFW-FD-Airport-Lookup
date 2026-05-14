@@ -253,6 +253,10 @@
     const ident = normalizeIdent(form.identifier.value);
     const sectors = normalizeSectors(form.sectors.value);
     const areas = normalizeAreas(form.areas.value, sectors);
+    const apps = normalizeApps(form.apps.value);
+    const vscs = splitList(form.vscs.value);
+    const contacts = splitList(form.contacts.value);
+    const hours = splitList(form.hours.value);
 
     const latText = form.lat.value.trim();
     const lonText = form.lon.value.trim();
@@ -260,15 +264,15 @@
     const record = {
       sectors,
       areas,
-      apps: normalizeApps(form.apps.value),
-      vscs: splitList(form.vscs.value),
-      contacts: splitList(form.contacts.value),
-      hours: splitList(form.hours.value),
+      apps,
+      vscs,
+      contacts,
+      hours,
       airport_name: form.airportName.value.trim()
     };
 
-    if (latText !== "") record.lat = Number(latText);
-    if (lonText !== "") record.lon = Number(lonText);
+    if (latText !== "") record.lat = Math.round(Number(latText) * 10000) / 10000;
+    if (lonText !== "") record.lon = Math.round(Number(lonText) * 10000) / 10000;
 
     return { ident, record };
   }
@@ -289,9 +293,13 @@
   function applyOneCorrection(ident, record) {
     const records = getRecords();
     ident = normalizeIdent(ident);
-    records[ident] = record;
-
     const alias = aliasForIdent(ident);
+
+    delete records[ident];
+    if (alias) delete records[alias];
+
+    records[ident] = JSON.parse(JSON.stringify(record));
+
     if (alias) {
       records[alias] = JSON.parse(JSON.stringify(record));
     }
@@ -520,8 +528,8 @@
     tools.id = "correctionTools";
     tools.className = "correction-tools";
     tools.innerHTML = `
-      <button type="button" id="addAirportButton">Add Missing Airport</button>
-      <button type="button" id="amendAirportButton" class="secondary">Amend Airport Info</button>
+      <button type="button" id="amendAirportButton">Amend Airport Info</button>
+      <button type="button" id="addAirportButton" class="secondary">Add Missing Airport</button>
     `;
 
     const searchRow = document.querySelector(".search-row");
@@ -575,7 +583,8 @@
 
             <div class="correction-field full">
               <label for="corrContacts">APP Contact / Notes</label>
-              <textarea id="corrContacts" name="contacts" placeholder="Phone number, DO NOT RELAY, or operational note"></textarea>
+              <textarea id="corrContacts" name="contacts" placeholder="Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)"></textarea>
+              <div class="correction-help">Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)</div>
             </div>
 
             <div class="correction-field">
@@ -585,12 +594,14 @@
 
             <div class="correction-field">
               <label for="corrLat">Latitude</label>
-              <input id="corrLat" name="lat" type="number" step="any" placeholder="33.123456" />
+              <input id="corrLat" name="lat" type="number" step="0.0001" placeholder="33.1234" />
+              <div class="correction-help">Approximation is okay. Four decimals is enough.</div>
             </div>
 
             <div class="correction-field">
               <label for="corrLon">Longitude</label>
-              <input id="corrLon" name="lon" type="number" step="any" placeholder="-101.123456" />
+              <input id="corrLon" name="lon" type="number" step="0.0001" placeholder="-101.1234" />
+              <div class="correction-help">Approximation is okay. Four decimals is enough.</div>
             </div>
           </div>
 
@@ -629,7 +640,7 @@
       }
 
       if (Number.isNaN(record.lat) || Number.isNaN(record.lon)) {
-        showMessage("Latitude and longitude must be valid numbers when entered.", true);
+        showMessage("Latitude and longitude must be valid numbers when entered. APP fields may be left blank when none apply.", true);
         return;
       }
 
@@ -651,7 +662,7 @@
       saveCorrections(corrections);
       applyOneCorrection(ident, record);
 
-      showMessage(mode === "add" ? "Airport added for this browser." : "Airport amendment saved for this browser.", false);
+      showMessage(mode === "add" ? "Airport added for this browser." : "Airport amendment saved and previous data overwritten for this browser.", false);
       refreshCurrentLookup(ident);
 
       setTimeout(closeModal, 600);

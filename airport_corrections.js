@@ -1083,3 +1083,205 @@ const corrections = loadCorrections();
   }
 })();
 
+
+
+/* Airport form dropdown/GPS enhancement */
+(function () {
+  "use strict";
+
+  const LOW_SECTORS = [
+    "",
+    "ABI 20", "ADM 21", "BYP 35", "CQY 39", "DAL 29", "DON 29",
+    "FUZ 38", "GGG 37", "GNP 46", "JEN 56", "LBBL 64", "MLU 31",
+    "RDR 66", "SJT 41", "SPS 34", "TXK 27", "UKW 48"
+  ];
+
+  const AREAS = ["", "DAL", "CQY", "BYP", "JEN", "UKW", "RDR"];
+
+  const APPROACHES = [
+    "N/A",
+    "D10 APP", "DFW APP", "LBB APP", "SPS APP", "LTS APP", "FSI APP",
+    "GGG APP", "SHV APP", "TYR APP", "ACT APP", "ABI APP", "SJT APP",
+    "MLU APP", "FSM APP", "OKC APP", "TUL APP", "LAW APP"
+  ];
+
+  function normalizeIdent(value) {
+    return String(value || "").trim().toUpperCase();
+  }
+
+  function optionHtml(values, selected) {
+    selected = normalizeIdent(selected);
+    return values.map(function (value) {
+      const label = value || "";
+      const sel = normalizeIdent(value) === selected ? " selected" : "";
+      return `<option value="${value}"${sel}>${label || "Select"}</option>`;
+    }).join("");
+  }
+
+  function replaceInputWithSelect(input, values, currentValue) {
+    if (!input || input.tagName === "SELECT") return input;
+
+    const select = document.createElement("select");
+    select.id = input.id;
+    select.name = input.name;
+    select.className = input.className;
+    select.innerHTML = optionHtml(values, currentValue || input.value || input.placeholder || "");
+
+    input.replaceWith(select);
+    return select;
+  }
+
+  function dmmToDecimal(deg, minutes, hemi) {
+    let value = Number(deg) + Number(minutes) / 60;
+    if (String(hemi).toUpperCase() === "S" || String(hemi).toUpperCase() === "W") {
+      value *= -1;
+    }
+    return Math.round(value * 10000) / 10000;
+  }
+
+  function parseSkyVectorGps(value) {
+    const text = String(value || "").toUpperCase().replace(/GPS/g, "").trim();
+
+    // Accept N33°39.84' W101°49.07'
+    let m = text.match(/([NS])\s*(\d{1,2})\s*[°\s]\s*(\d{1,2}(?:\.\d+)?)\s*['’]?\s*[, ]+\s*([EW])\s*(\d{1,3})\s*[°\s]\s*(\d{1,2}(?:\.\d+)?)\s*['’]?/);
+    if (m) {
+      return {
+        lat: dmmToDecimal(m[2], m[3], m[1]),
+        lon: dmmToDecimal(m[5], m[6], m[4])
+      };
+    }
+
+    // Accept 33°39.84'N 101°49.07'W
+    m = text.match(/(\d{1,2})\s*[°\s]\s*(\d{1,2}(?:\.\d+)?)\s*['’]?\s*([NS])\s*[, ]+\s*(\d{1,3})\s*[°\s]\s*(\d{1,2}(?:\.\d+)?)\s*['’]?\s*([EW])/);
+    if (m) {
+      return {
+        lat: dmmToDecimal(m[1], m[2], m[3]),
+        lon: dmmToDecimal(m[4], m[5], m[6])
+      };
+    }
+
+    // Accept decimal pair as fallback.
+    m = text.match(/(-?\d{1,3}\.\d+)\s*,?\s+(-?\d{1,3}\.\d+)/);
+    if (m) {
+      return {
+        lat: Math.round(Number(m[1]) * 10000) / 10000,
+        lon: Math.round(Number(m[2]) * 10000) / 10000
+      };
+    }
+
+    return null;
+  }
+
+  function createGpsField() {
+    const latInput = document.querySelector('#correctionForm input[name="lat"], #correctionForm input[name="latitude"], #correctionForm #latitude, #correctionForm #airportLat');
+    const lonInput = document.querySelector('#correctionForm input[name="lon"], #correctionForm input[name="longitude"], #correctionForm #longitude, #correctionForm #airportLon');
+
+    if (!latInput && !lonInput) return;
+
+    const existingGps = document.getElementById("airportGpsPaste");
+    if (existingGps) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "correction-field full";
+    wrapper.innerHTML = `
+      <label for="airportGpsPaste">GPS Coordinates</label>
+      <input id="airportGpsPaste" name="gps" type="text" placeholder="Copy & Paste the GPS info from SkyVector" />
+      <div class="correction-help">Accepted example: GPS N33°39.84' W101°49.07'</div>
+    `;
+
+    const insertAt = latInput ? latInput.closest(".correction-field") : lonInput.closest(".correction-field");
+    if (insertAt && insertAt.parentNode) {
+      insertAt.parentNode.insertBefore(wrapper, insertAt);
+    }
+
+    if (latInput) {
+      latInput.closest(".correction-field")?.remove();
+    }
+
+    if (lonInput) {
+      lonInput.closest(".correction-field")?.remove();
+    }
+  }
+
+  function enhanceAirportForm() {
+    const form = document.getElementById("correctionForm");
+    if (!form) return;
+
+    const sectorInput = form.querySelector('[name="sector"], [name="sectors"], #sector, #airportSector');
+    const areaInput = form.querySelector('[name="area"], [name="areas"], #area, #airportArea');
+    const appInput = form.querySelector('[name="app"], [name="apps"], [name="approach"], #approach, #airportApproach');
+
+    replaceInputWithSelect(sectorInput, LOW_SECTORS);
+    replaceInputWithSelect(areaInput, AREAS);
+    replaceInputWithSelect(appInput, APPROACHES);
+
+    createGpsField();
+
+    if (form.dataset.gpsPatched !== "true") {
+      form.dataset.gpsPatched = "true";
+      form.addEventListener("submit", function (event) {
+        const gpsInput = document.getElementById("airportGpsPaste");
+        if (!gpsInput || !gpsInput.value.trim()) return;
+
+        const parsed = parseSkyVectorGps(gpsInput.value);
+        if (!parsed) {
+          event.preventDefault();
+          const message = document.getElementById("correctionMessage");
+          if (message) {
+            message.textContent = "GPS format not recognized. Use format like GPS N33°39.84' W101°49.07'";
+            message.className = "correction-message error";
+          } else {
+            alert("GPS format not recognized. Use format like GPS N33°39.84' W101°49.07'");
+          }
+          return;
+        }
+
+        // Create hidden lat/lon fields so the existing save logic continues to work.
+        let latHidden = form.querySelector('input[name="lat"]');
+        let lonHidden = form.querySelector('input[name="lon"]');
+
+        if (!latHidden) {
+          latHidden = document.createElement("input");
+          latHidden.type = "hidden";
+          latHidden.name = "lat";
+          form.appendChild(latHidden);
+        }
+
+        if (!lonHidden) {
+          lonHidden = document.createElement("input");
+          lonHidden.type = "hidden";
+          lonHidden.name = "lon";
+          form.appendChild(lonHidden);
+        }
+
+        latHidden.value = parsed.lat;
+        lonHidden.value = parsed.lon;
+      }, true);
+    }
+  }
+
+  function bootAirportFormEnhancement() {
+    enhanceAirportForm();
+
+    const modal = document.getElementById("correctionModal");
+    if (modal && window.MutationObserver) {
+      new MutationObserver(function () {
+        if (modal.getAttribute("aria-hidden") === "false") {
+          setTimeout(enhanceAirportForm, 0);
+          setTimeout(enhanceAirportForm, 150);
+        }
+      }).observe(modal, { attributes: true, attributeFilter: ["aria-hidden"] });
+    }
+
+    setInterval(enhanceAirportForm, 500);
+  }
+
+  window.ZFW_PARSE_SKYVECTOR_GPS = parseSkyVectorGps;
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootAirportFormEnhancement);
+  } else {
+    bootAirportFormEnhancement();
+  }
+})();
+

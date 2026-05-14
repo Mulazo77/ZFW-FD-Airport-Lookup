@@ -1,6 +1,6 @@
-// Safe Firestore correction layer for ZFW FDU Airport Locator.
-// This version will not trap the site in a loading loop if Firebase is blocked,
-// not configured, or anonymous auth is not enabled.
+// Firestore correction layer for ZFW FDU Airport Locator.
+// Firebase does not start until after the site login succeeds.
+// This prevents the login screen from becoming unresponsive.
 
 (function () {
   "use strict";
@@ -10,6 +10,7 @@
   const FIREBASE_FIRESTORE_URL = "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
   const FIREBASE_TIMEOUT_MS = 5000;
 
+  let startPromise = null;
   let initialized = false;
   let initFailed = false;
   let firestoreApi = null;
@@ -17,6 +18,10 @@
 
   function normalizeIdent(value) {
     return String(value || "").trim().toUpperCase();
+  }
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value || {}));
   }
 
   function getAirportRecords() {
@@ -30,28 +35,30 @@
     return window.ZFW_NAV_DATA;
   }
 
-  function clone(value) {
-    return JSON.parse(JSON.stringify(value || {}));
+  function timeoutPromise(ms) {
+    return new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Firebase connection timed out.")), ms);
+    });
   }
 
   function applyRecord(type, ident, record) {
     ident = normalizeIdent(ident);
     if (!ident) return;
 
-    record = clone(record);
+    const clean = clone(record);
 
     if (type === "airport") {
       const records = getAirportRecords();
-      records[ident] = record;
+      records[ident] = clean;
 
       if (ident.length === 4 && ident.startsWith("K")) {
-        records[ident.slice(1)] = clone(record);
+        records[ident.slice(1)] = clone(clean);
       } else if (ident.length === 3) {
-        records["K" + ident] = clone(record);
+        records["K" + ident] = clone(clean);
       }
     } else {
-      getNavData()[ident] = record;
-      getAirportRecords()[ident] = record;
+      getNavData()[ident] = clean;
+      getAirportRecords()[ident] = clean;
     }
 
     if (window.ZFW_UPDATE_NEAREST_WX) {
@@ -59,19 +66,13 @@
     }
   }
 
-  function timeoutPromise(ms) {
-    return new Promise((_, reject) => {
-      setTimeout(() => reject(new Error("Firebase connection timed out.")), ms);
-    });
-  }
-
-  async function initFirebaseSafe() {
+  async function initFirebase() {
     if (initialized) return true;
     if (initFailed) return false;
 
     try {
       if (!window.ZFW_FIREBASE_CONFIG || window.ZFW_FIREBASE_CONFIG.apiKey === "PASTE_API_KEY_HERE") {
-        throw new Error("Firebase config is missing.");
+        throw new Error("Firebase config missing.");
       }
 
       const firebaseLoad = Promise.all([
@@ -96,50 +97,80 @@
       ]);
 
       initialized = true;
-      console.log("ZFW Firestore shared corrections connected.");
+      console.log("ZFW Firebase connected.");
       return true;
     } catch (error) {
       initFailed = true;
-      console.warn("ZFW Firestore shared corrections disabled:", error.message || error);
+      console.warn("ZFW Firebase disabled:", error.message || error);
       return false;
     }
   }
 
   async function loadSharedCorrections() {
-    const ok = await initFirebaseSafe();
+    const ok = await initFirebase();
     if (!ok) return false;
 
     try {
       const { collection, getDocs } = firestoreApi;
 
-      for (const item of [
+      const groups = [
         { type: "airport", path: "airports" },
         { type: "navpoint", path: "navpoints" }
-      ]) {
-        const snapshot = await getDocs(collection(db, "zfw_corrections", item.path, "records"));
+      ];
+
+      for (const group of groups) {
+        const snapshot = await getDocs(collection(db, "zfw_corrections", group.path, "records"));
         snapshot.forEach((docSnap) => {
-          applyRecord(item.type, docSnap.id, docSnap.data());
+          applyRecord(group.type, docSnap.id, docSnap.data());
         });
       }
 
       return true;
     } catch (error) {
-      console.warn("Could not load shared Firestore corrections:", error.message || error);
+      console.warn("Could not load Firestore corrections:", error.message || error);
       return false;
     }
   }
 
-  async function saveSharedRecord(type, ident, record) {
-    const ok = await initFirebaseSafe();
+  function listenForSharedCorrections() {
+    initFirebase().then((ok) => {
+      if (!ok) return;
 
+      try {
+        const { collection, onSnapshot } = firestoreApi;
+
+        [
+          { type: "airport", path: "airports" },
+          { type: "navpoint", path: "navpoints" }
+        ].forEach((group) => {
+          onSnapshot(
+            collection(db, "zfw_corrections", group.path, "records"),
+            (snapshot) => {
+              snapshot.docChanges().forEach((change) => {
+                if (change.type !== "removed") {
+                  applyRecord(group.type, change.doc.id, change.doc.data());
+                }
+              });
+            },
+            (error) => {
+              console.warn("Firestore listener stopped:", error.message || error);
+            }
+          );
+        });
+      } catch (error) {
+        console.warn("Could not start Firestore listeners:", error.message || error);
+      }
+    });
+  }
+
+  async function saveSharedRecord(type, ident, record) {
     ident = normalizeIdent(ident);
     if (!ident) return false;
 
     applyRecord(type, ident, record);
 
-    if (!ok) {
-      return false;
-    }
+    const ok = await initFirebase();
+    if (!ok) return false;
 
     try {
       const { doc, setDoc, serverTimestamp } = firestoreApi;
@@ -153,49 +184,24 @@
       await setDoc(doc(db, "zfw_corrections", collectionName, "records", ident), cleanRecord);
       return true;
     } catch (error) {
-      console.warn("Could not save shared Firestore correction:", error.message || error);
+      console.warn("Could not save Firestore correction:", error.message || error);
       return false;
     }
   }
 
-  function listenForSharedCorrections() {
-    initFirebaseSafe().then((ok) => {
-      if (!ok) return;
+  function startFirebaseAfterLogin() {
+    if (startPromise) return startPromise;
 
-      try {
-        const { collection, onSnapshot } = firestoreApi;
-
-        [
-          { type: "airport", path: "airports" },
-          { type: "navpoint", path: "navpoints" }
-        ].forEach((item) => {
-          onSnapshot(
-            collection(db, "zfw_corrections", item.path, "records"),
-            (snapshot) => {
-              snapshot.docChanges().forEach((change) => {
-                if (change.type === "removed") return;
-                applyRecord(item.type, change.doc.id, change.doc.data());
-              });
-            },
-            (error) => {
-              console.warn("Firestore listener stopped:", error.message || error);
-            }
-          );
-        });
-      } catch (error) {
-        console.warn("Could not start Firestore listener:", error.message || error);
-      }
+    startPromise = loadSharedCorrections().then(() => {
+      listenForSharedCorrections();
     });
+
+    return startPromise;
   }
 
+  window.ZFW_START_FIREBASE = startFirebaseAfterLogin;
   window.ZFW_SAVE_SHARED_RECORD = saveSharedRecord;
   window.ZFW_LOAD_SHARED_CORRECTIONS = loadSharedCorrections;
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
-      loadSharedCorrections().then(listenForSharedCorrections);
-    });
-  } else {
-    loadSharedCorrections().then(listenForSharedCorrections);
-  }
+  // Critical: intentionally do not auto-start here.
 })();

@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Current-security implementation:
+    // The site keeps the existing ZFW/ZFWCD page login, then signs in anonymously to Firebase.
+    // These rules allow anonymous authenticated users to read/write correction records.
+    // This matches the current login gate but is not strong identity security.
+    //
+    // Stronger future option:
+    // Replace anonymous auth with Google/Microsoft sign-in and restrict by approved email/domain.
+
+    match /zfw_corrections/{category}/records/{identifier} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && category in ['airports', 'navpoints']
+        && identifier == identifier.upper()
+        && request.resource.data.identifier == identifier;
+      allow delete: if false;
+    }
+  }
+}

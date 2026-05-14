@@ -274,6 +274,10 @@
       if (airportInput) {
         airportInput.focus();
       }
+
+      if (window.ZFW_START_FIREBASE) {
+        window.ZFW_START_FIREBASE();
+      }
     }
 
     function showLogin() {

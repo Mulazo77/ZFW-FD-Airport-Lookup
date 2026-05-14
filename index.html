@@ -211,45 +211,74 @@
 
   <style>
     .bottom-correction-zone {
-      margin-top: 18px;
-      margin-bottom: 10px;
-      display: flex;
-      justify-content: flex-end;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
+      width: 100% !important;
+      margin-top: 18px !important;
+      margin-bottom: 10px !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      gap: 14px !important;
+      flex-wrap: wrap !important;
+      clear: both !important;
     }
 
     .bottom-correction-zone .correction-tools,
     .bottom-correction-zone .action-buttons,
     .bottom-correction-zone .top-action-buttons,
     .bottom-correction-zone .header-action-buttons {
+      width: auto !important;
       margin-top: 0 !important;
       display: flex !important;
-      gap: 12px !important;
-      flex-wrap: wrap !important;
+      justify-content: center !important;
       align-items: center !important;
+      gap: 14px !important;
+      flex-wrap: wrap !important;
     }
 
     .bottom-correction-zone button {
+      flex: 0 0 320px !important;
+      width: 320px !important;
+      max-width: 320px !important;
+      min-width: 320px !important;
       height: 42px !important;
       min-height: 42px !important;
-      width: 230px !important;
-      min-width: 230px !important;
-      max-width: 230px !important;
-      padding: 0 14px !important;
+      padding: 0 12px !important;
       border: 0 !important;
       border-radius: 14px !important;
-      font-size: 0.90rem !important;
+      color: #ffffff !important;
+      font-family: inherit !important;
+      font-size: 0.88rem !important;
       font-weight: 800 !important;
       line-height: 1 !important;
+      text-align: center !important;
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
       white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: clip !important;
       box-sizing: border-box !important;
-      font-family: inherit !important;
       cursor: pointer !important;
+      box-shadow: none !important;
+    }
+
+    .bottom-correction-zone button:first-of-type {
+      background: #156082 !important;
+    }
+
+    .bottom-correction-zone button:nth-of-type(2),
+    .bottom-correction-zone button:nth-of-type(3) {
+      background: #64748b !important;
+    }
+
+    @media (max-width: 1050px) {
+      .bottom-correction-zone button {
+        flex-basis: 300px !important;
+        width: 300px !important;
+        min-width: 300px !important;
+        max-width: 300px !important;
+        font-size: 0.82rem !important;
+      }
     }
   </style>
 
@@ -428,64 +457,25 @@
       showLogin();
     });
   </script>
-
-
   <script>
     function moveCorrectionButtonsToBottom() {
       const bottomZone = document.getElementById("bottomCorrectionZone");
       if (!bottomZone) return;
 
-      const labels = [
+      const order = [
         "Add/Amend Airport",
         "Add/Amend Waypoint/Navaid for PIREP",
-        "Add Non-ZFW Airport",
-        "Add Waypoint/Navaid for PIREP",
-        "Add or Amend Waypoint/Navaid for PIREP",
-        "Amend Airport Info",
-        "Add Missing Airport"
+        "Add Non-ZFW Airport"
       ];
 
-      const buttons = Array.from(document.querySelectorAll("button")).filter(function (button) {
-        const text = (button.textContent || "").trim();
-        return labels.includes(text);
-      });
+      order.forEach(function (label) {
+        const button = Array.from(document.querySelectorAll("button")).find(function (btn) {
+          return (btn.textContent || "").trim() === label;
+        });
 
-      if (!buttons.length) return;
-
-      let container = null;
-
-      buttons.forEach(function (button) {
-        const parent = button.parentElement;
-        if (
-          parent &&
-          parent !== bottomZone &&
-          (
-            parent.classList.contains("correction-tools") ||
-            parent.classList.contains("action-buttons") ||
-            parent.classList.contains("top-action-buttons") ||
-            parent.classList.contains("header-action-buttons") ||
-            (parent.children.length <= 3 && parent.textContent.includes("Add/Amend"))
-          )
-        ) {
-          container = parent;
-        }
-      });
-
-      if (container && container.parentElement !== bottomZone) {
-        bottomZone.appendChild(container);
-        container.style.position = "";
-        container.style.top = "";
-        container.style.right = "";
-        container.style.bottom = "";
-        container.style.left = "";
-        container.style.display = "flex";
-        container.style.gap = "12px";
-        container.style.flexWrap = "wrap";
-        return;
-      }
-
-      buttons.forEach(function (button) {
-        if (!bottomZone.contains(button)) {
+        if (button && button.parentElement !== bottomZone) {
+          bottomZone.appendChild(button);
+        } else if (button && button.parentElement === bottomZone) {
           bottomZone.appendChild(button);
         }
       });

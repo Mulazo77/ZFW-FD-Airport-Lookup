@@ -16,21 +16,21 @@
   function aliasesFor(ident){
     ident = normalizeIdent(ident);
     if(!isCompleteAirportIdent(ident)) return [];
-    if(ident.length === 4 && ident.startsWith("K")) return [ident, ident.slice(1)];
-    if(ident.length === 3) return [ident, "K" + ident];
-    return [ident];
-  }
 
-  function getZfwRecord(ident){
-    const records = window.AIRPORT_DATA?.records || {};
-    for(const alias of aliasesFor(ident)){
-      if(records[alias]) return records[alias];
+    if(ident.length === 4 && ident.startsWith("K")){
+      return [ident, ident.slice(1)];
     }
-    return null;
+
+    if(ident.length === 3){
+      return [ident, "K" + ident];
+    }
+
+    return [ident];
   }
 
   function getAdjacentRecord(ident){
     const airports = window.ZFW_ADJACENT_ARTCC_AIRPORTS?.airports || {};
+
     for(const alias of aliasesFor(ident)){
       if(airports[alias]){
         return {
@@ -39,6 +39,17 @@
         };
       }
     }
+
+    return null;
+  }
+
+  function getZfwRecord(ident){
+    const records = window.AIRPORT_DATA?.records || {};
+
+    for(const alias of aliasesFor(ident)){
+      if(records[alias]) return records[alias];
+    }
+
     return null;
   }
 
@@ -55,6 +66,15 @@
     if(el){
       el.innerHTML = value || "—";
       el.title = "";
+    }
+  }
+
+  function setStatus(text, warning){
+    const status = document.getElementById("status");
+    if(status){
+      status.textContent = text;
+      status.classList.remove("error", "not-found");
+      status.style.color = warning ? "#ffd166" : "";
     }
   }
 
@@ -80,15 +100,6 @@
     if(card) card.style.display = "";
   }
 
-  function setStatus(text){
-    const status = document.getElementById("status");
-    if(status){
-      status.textContent = text;
-      status.classList.remove("error", "not-found");
-      status.style.color = "#ffd166";
-    }
-  }
-
   function clearPartialDisplay(){
     activeAdjacentIdent = "";
 
@@ -102,12 +113,7 @@
     setText("nearestWeather", "—");
 
     showMap();
-
-    const status = document.getElementById("status");
-    if(status){
-      status.textContent = "Ready";
-      status.style.color = "";
-    }
+    setStatus("Ready", false);
   }
 
   function clearInputSoon(expectedIdent){
@@ -159,7 +165,7 @@
       contactCard.classList.add("nearest-wx-highlight");
     }
 
-    setStatus(statusLine);
+    setStatus(statusLine, true);
     hideMap();
     clearInputSoon(displayIdent);
   }
@@ -170,28 +176,35 @@
 
     const ident = normalizeIdent(input.value);
 
-    if(!ident) return;
+    if(!ident){
+      return;
+    }
 
+    // No lookup should ever run on 1- or 2-character entries.
     if(ident.length < 3){
       clearPartialDisplay();
       return;
     }
 
-    if(!isCompleteAirportIdent(ident)) return;
-
-    const zfwRecord = getZfwRecord(ident);
-    if(zfwRecord){
-      activeAdjacentIdent = "";
-      showMap();
+    if(!isCompleteAirportIdent(ident)){
       return;
     }
 
+    // Adjacent exact matches take priority. This fixes ICT/ABQ/MEM even if some
+    // other script has partial/stale data or a same identifier elsewhere.
     const adjacent = getAdjacentRecord(ident);
-    if(!adjacent) return;
+    if(adjacent){
+      [0, 100, 250, 500].forEach(delay => {
+        setTimeout(() => showAdjacent(ident, adjacent), delay);
+      });
+      return;
+    }
 
-    [0, 120, 350].forEach(delay => {
-      setTimeout(() => showAdjacent(ident, adjacent), delay);
-    });
+    // No adjacent match: let the normal ZFW app handle it.
+    if(getZfwRecord(ident)){
+      activeAdjacentIdent = "";
+      showMap();
+    }
   }
 
   function boot(){
@@ -204,10 +217,23 @@
       const input = document.getElementById("airportInput");
       const typed = normalizeIdent(input?.value || "");
 
-      if(typed && getZfwRecord(typed)){
-        activeAdjacentIdent = "";
-        showMap();
+      if(typed && typed.length < 3){
+        clearPartialDisplay();
         return;
+      }
+
+      if(typed && isCompleteAirportIdent(typed)){
+        const adjacent = getAdjacentRecord(typed);
+        if(adjacent){
+          showAdjacent(typed, adjacent);
+          return;
+        }
+
+        if(getZfwRecord(typed)){
+          activeAdjacentIdent = "";
+          showMap();
+          return;
+        }
       }
 
       if(activeAdjacentIdent){
@@ -218,7 +244,7 @@
           setText("nearestWeather", "—");
         }
       }
-    }, 300);
+    }, 250);
   }
 
   if(document.readyState === "loading"){

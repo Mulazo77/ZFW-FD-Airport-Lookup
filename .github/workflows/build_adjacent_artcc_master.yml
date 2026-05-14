@@ -1,0 +1,31 @@
+name: Build Adjacent ARTCC Airport Master List
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-adjacent-artcc-master:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build static adjacent ARTCC airport master list
+        run: python scripts/build_adjacent_artcc_airports.py
+
+      - name: Commit generated adjacent ARTCC master list
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add zfw_adjacent_artcc_airports.js
+          git diff --cached --quiet && echo "No changes to commit" || git commit -m "Build adjacent ARTCC airport master list"
+          git push

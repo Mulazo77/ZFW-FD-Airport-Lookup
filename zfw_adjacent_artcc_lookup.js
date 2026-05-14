@@ -23,11 +23,17 @@
         color: #ffffff !important;
         font-weight: 800 !important;
         padding: 10px 14px !important;
-        font-size: 0.95rem !important;
-        line-height: 1.15 !important;
+        font-size: 0.90rem !important;
+        line-height: 1 !important;
+        height: 40px !important;
+        min-height: 40px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         cursor: pointer !important;
         box-shadow: none !important;
         font-family: inherit !important;
+        white-space: nowrap !important;
       }
 
       #addNonZfwAirportButton:hover {

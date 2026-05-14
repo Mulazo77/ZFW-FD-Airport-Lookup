@@ -208,6 +208,28 @@
     }
   </style>
 
+
+  <style>
+    .bottom-correction-zone {
+      margin-top: 18px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .bottom-correction-zone .correction-tools,
+    .bottom-correction-zone .action-buttons,
+    .bottom-correction-zone .top-action-buttons,
+    .bottom-correction-zone .header-action-buttons {
+      margin-top: 0 !important;
+      display: flex !important;
+      gap: 12px !important;
+      flex-wrap: wrap !important;
+    }
+  </style>
+
 </head>
 <body>
   <section id="loginPage">
@@ -253,6 +275,8 @@
         <div id="nearestWeatherCard" class="card nearest-weather-card"><div class="card-title">NEAREST WX STATION</div><div id="nearestWeather" class="card-value">—</div></div>
         <div id="mapCard" class="card map-card"><div class="card-title">ZFW ARTCC AIRSPACE</div><canvas id="zfwMap"></canvas></div>
       </section>
+
+      <section id="bottomCorrectionZone" class="bottom-correction-zone" aria-label="Correction tools"></section>
     </main>
   </div>
 
@@ -263,7 +287,6 @@
       "zfw_nav_data.js",
       "zfw_supplemental_navaids.js",
       "zfw_supplemental_waypoints.js",
-      "zfw_supplemental_navaids.js",
       "zfw_weather_stations.js",
       "zfw_adjacent_artcc_airports.js",
       "zfw_adjacent_artcc_lookup.js",
@@ -313,13 +336,6 @@
       }
       if (status) status.textContent = "Ready";
 
-      if (typeof loadZfwAppScriptsAfterLogin === "function") {
-        loadZfwAppScriptsAfterLogin().catch(function (error) {
-          console.error(error);
-          alert("The app scripts failed to load. Check GitHub Pages file names and browser console.");
-        });
-      }
-
       const airportInput = document.getElementById("airportInput");
       if (airportInput) {
         airportInput.focus();
@@ -345,13 +361,6 @@
       const airportInput = document.getElementById("airportInput");
       if (airportInput) {
         airportInput.focus();
-      }
-
-      if (typeof loadZfwAppScriptsAfterLogin === "function") {
-        loadZfwAppScriptsAfterLogin().catch(function (error) {
-          console.error(error);
-          alert("The app scripts failed to load. Check GitHub Pages file names and browser console.");
-        });
       }
     }
 
@@ -390,46 +399,81 @@
     });
   </script>
 
-<div id="bottomActionButtons" style="
-  position: fixed;
-  bottom: 18px;
-  right: 22px;
-  display: flex;
-  gap: 12px;
-  z-index: 9999;
-">
-  <button id="bottomAirportButton" class="action-btn">
-    Add/Amend Airport
-  </button>
 
-  <button id="bottomWaypointButton" class="action-btn secondary">
-    Add/Amend Waypoint/Navaid for PIREP
-  </button>
-</div>
+  <script>
+    function moveCorrectionButtonsToBottom() {
+      const bottomZone = document.getElementById("bottomCorrectionZone");
+      if (!bottomZone) return;
 
-<script>
-document.addEventListener("DOMContentLoaded", function(){
+      const labels = [
+        "Add/Amend Airport",
+        "Add/Amend Waypoint/Navaid for PIREP",
+        "Add Waypoint/Navaid for PIREP",
+        "Add or Amend Waypoint/Navaid for PIREP",
+        "Amend Airport Info",
+        "Add Missing Airport"
+      ];
 
-  const oldAirportBtn =
-    document.getElementById("airportCorrectionBtn") ||
-    document.querySelector('[data-action="airport-correction"]');
+      const buttons = Array.from(document.querySelectorAll("button")).filter(function (button) {
+        const text = (button.textContent || "").trim();
+        return labels.includes(text);
+      });
 
-  const oldWaypointBtn =
-    document.getElementById("waypointCorrectionBtn") ||
-    document.querySelector('[data-action="waypoint-correction"]');
+      if (!buttons.length) return;
 
-  const newAirportBtn = document.getElementById("bottomAirportButton");
-  const newWaypointBtn = document.getElementById("bottomWaypointButton");
+      let container = null;
 
-  if(oldAirportBtn && newAirportBtn){
-    newAirportBtn.addEventListener("click", () => oldAirportBtn.click());
-  }
+      buttons.forEach(function (button) {
+        const parent = button.parentElement;
+        if (
+          parent &&
+          parent !== bottomZone &&
+          (
+            parent.classList.contains("correction-tools") ||
+            parent.classList.contains("action-buttons") ||
+            parent.classList.contains("top-action-buttons") ||
+            parent.classList.contains("header-action-buttons") ||
+            (parent.children.length <= 3 && parent.textContent.includes("Add/Amend"))
+          )
+        ) {
+          container = parent;
+        }
+      });
 
-  if(oldWaypointBtn && newWaypointBtn){
-    newWaypointBtn.addEventListener("click", () => oldWaypointBtn.click());
-  }
-});
-</script>
+      if (container && container.parentElement !== bottomZone) {
+        bottomZone.appendChild(container);
+        container.style.position = "";
+        container.style.top = "";
+        container.style.right = "";
+        container.style.bottom = "";
+        container.style.left = "";
+        container.style.display = "flex";
+        container.style.gap = "12px";
+        container.style.flexWrap = "wrap";
+        return;
+      }
+
+      buttons.forEach(function (button) {
+        if (!bottomZone.contains(button)) {
+          bottomZone.appendChild(button);
+        }
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      moveCorrectionButtonsToBottom();
+      setTimeout(moveCorrectionButtonsToBottom, 250);
+      setTimeout(moveCorrectionButtonsToBottom, 750);
+      setTimeout(moveCorrectionButtonsToBottom, 1500);
+
+      const observer = new MutationObserver(function () {
+        moveCorrectionButtonsToBottom();
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+  </script>
+
 </body>
 
 </html>

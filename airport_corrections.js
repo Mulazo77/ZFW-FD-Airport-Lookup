@@ -1,0 +1,668 @@
+(function () {
+  "use strict";
+
+  const STORAGE_KEY = "zfwAirportLocatorCorrections";
+
+  const SECTOR_ALIASES = {
+    "LBBL": "LBB 64",
+    "LBB L": "LBB 64",
+    "LBB-L": "LBB 64",
+    "LBB64": "LBB 64",
+    "64": "LBB 64",
+
+    "SPSL": "SPS 34",
+    "SPS L": "SPS 34",
+    "SPS-L": "SPS 34",
+    "SPS34": "SPS 34",
+    "34": "SPS 34",
+
+    "OKCL": "OKC 35",
+    "OKC L": "OKC 35",
+    "OKC-L": "OKC 35",
+    "OKC35": "OKC 35",
+    "35": "OKC 35",
+
+    "UKWL": "UKW 75",
+    "UKW L": "UKW 75",
+    "UKW-L": "UKW 75",
+    "UKW75": "UKW 75",
+    "75": "UKW 75",
+
+    "ABIL": "ABI 63",
+    "ABI L": "ABI 63",
+    "ABI-L": "ABI 63",
+    "ABI63": "ABI 63",
+    "63": "ABI 63",
+
+    "EDNL": "EDN 62",
+    "EDN L": "EDN 62",
+    "EDN-L": "EDN 62",
+    "EDN62": "EDN 62",
+    "62": "EDN 62",
+
+    "MAFL": "MAF 40",
+    "MAF L": "MAF 40",
+    "MAF-L": "MAF 40",
+    "MAF40": "MAF 40",
+    "40": "MAF 40",
+
+    "SEAL": "SEA 37",
+    "SEA L": "SEA 37",
+    "SEA-L": "SEA 37",
+    "SEA37": "SEA 37",
+    "37": "SEA 37",
+
+    "MLCL": "MLC 38",
+    "MLC L": "MLC 38",
+    "MLC-L": "MLC 38",
+    "MLC38": "MLC 38",
+    "38": "MLC 38",
+
+    "FRIL": "FRI 53",
+    "FRI L": "FRI 53",
+    "FRI-L": "FRI 53",
+    "FRI53": "FRI 53",
+    "53": "FRI 53",
+
+    "UIML": "UIM 83",
+    "UIM L": "UIM 83",
+    "UIM-L": "UIM 83",
+    "UIM83": "UIM 83",
+    "83": "UIM 83",
+
+    "DONL": "DON 29",
+    "DON L": "DON 29",
+    "DON-L": "DON 29",
+    "DON29": "DON 29",
+    "29": "DON 29",
+
+    "POSL": "POS 32",
+    "POS L": "POS 32",
+    "POS-L": "POS 32",
+    "POS32": "POS 32",
+    "32": "POS 32",
+
+    "TXKL": "TXK 27",
+    "TXK L": "TXK 27",
+    "TXK-L": "TXK 27",
+    "TXK27": "TXK 27",
+    "27": "TXK 27",
+
+    "MLUL": "MLU 30",
+    "MLU L": "MLU 30",
+    "MLU-L": "MLU 30",
+    "MLU30": "MLU 30",
+    "30": "MLU 30"
+  };
+
+  const SECTOR_TO_AREA = {
+    "LBB 64": "RDR",
+    "SPS 34": "UKW",
+    "OKC 35": "UKW",
+    "UKW 75": "UKW",
+    "ABI 63": "JEN",
+    "EDN 62": "JEN",
+    "MAF 40": "JEN",
+    "SEA 37": "BYP",
+    "MLC 38": "BYP",
+    "FRI 53": "BYP",
+    "UIM 83": "BYP",
+    "DON 29": "DAL",
+    "POS 32": "DAL",
+    "TXK 27": "BYP",
+    "MLU 30": "BYP"
+  };
+
+  function getRecords() {
+    if (!window.AIRPORT_DATA) {
+      window.AIRPORT_DATA = { records: {} };
+    }
+    if (!window.AIRPORT_DATA.records) {
+      window.AIRPORT_DATA.records = {};
+    }
+    return window.AIRPORT_DATA.records;
+  }
+
+  function splitList(value) {
+    if (!value) return [];
+    return String(value)
+      .split(/[,\n;]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  function dedupe(values) {
+    const out = [];
+    values.forEach((value) => {
+      if (value && !out.includes(value)) out.push(value);
+    });
+    return out;
+  }
+
+  function normalizeIdent(value) {
+    return String(value || "").trim().toUpperCase();
+  }
+
+  function aliasForIdent(ident) {
+    ident = normalizeIdent(ident);
+    if (ident.length === 4 && ident.startsWith("K")) return ident.slice(1);
+    if (ident.length === 3) return "K" + ident;
+    return "";
+  }
+
+  function lookupRecord(ident) {
+    const records = getRecords();
+    ident = normalizeIdent(ident);
+    if (records[ident]) return { ident, record: records[ident] };
+
+    const alias = aliasForIdent(ident);
+    if (alias && records[alias]) return { ident: alias, record: records[alias] };
+
+    return null;
+  }
+
+  function makeSectorAliasKey(value) {
+    return String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, " ")
+      .replace(/[^A-Z0-9 ]/g, "")
+      .replace(/\s+/g, " ");
+  }
+
+  function buildDynamicSectorAliases() {
+    const records = getRecords();
+    Object.values(records).forEach((record) => {
+      (record.sectors || []).forEach((sector) => {
+        const clean = String(sector || "").trim().toUpperCase();
+        if (!clean) return;
+
+        const numberMatch = clean.match(/\b(\d{2})\b/);
+        const nameMatch = clean.match(/^([A-Z]{2,4})/);
+
+        if (numberMatch && !SECTOR_ALIASES[numberMatch[1]]) {
+          SECTOR_ALIASES[numberMatch[1]] = clean;
+        }
+
+        if (nameMatch) {
+          const prefix = nameMatch[1];
+          SECTOR_ALIASES[prefix] = clean;
+          SECTOR_ALIASES[prefix + "L"] = clean;
+          SECTOR_ALIASES[prefix + " L"] = clean;
+          SECTOR_ALIASES[prefix + "-" + "L"] = clean;
+        }
+      });
+    });
+  }
+
+  function normalizeSector(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+
+    const upper = raw.toUpperCase();
+    const compact = upper.replace(/[^A-Z0-9]/g, "");
+    const spaced = makeSectorAliasKey(upper);
+
+    if (SECTOR_ALIASES[upper]) return SECTOR_ALIASES[upper];
+    if (SECTOR_ALIASES[spaced]) return SECTOR_ALIASES[spaced];
+    if (SECTOR_ALIASES[compact]) return SECTOR_ALIASES[compact];
+
+    const numberOnly = upper.match(/^\d{2}$/);
+    if (numberOnly && SECTOR_ALIASES[numberOnly[0]]) return SECTOR_ALIASES[numberOnly[0]];
+
+    const lFormat = upper.match(/^([A-Z]{2,4})[\s-]*L$/);
+    if (lFormat) {
+      const key = lFormat[1] + "L";
+      if (SECTOR_ALIASES[key]) return SECTOR_ALIASES[key];
+    }
+
+    const sectorFormat = upper.match(/^([A-Z]{2,4})[\s-]*(\d{2})$/);
+    if (sectorFormat) return sectorFormat[1] + " " + sectorFormat[2];
+
+    return upper;
+  }
+
+  function normalizeSectors(value) {
+    return dedupe(splitList(value).map(normalizeSector));
+  }
+
+  function normalizeAreas(value, sectors) {
+    const direct = splitList(value).map((item) => item.toUpperCase());
+    if (direct.length) return dedupe(direct);
+
+    const derived = (sectors || [])
+      .map((sector) => SECTOR_TO_AREA[sector])
+      .filter(Boolean);
+
+    return dedupe(derived);
+  }
+
+  function normalizeApps(value) {
+    return dedupe(
+      splitList(value).map((item) => {
+        let app = item.toUpperCase().trim();
+        if (!app) return "";
+        if (!app.endsWith("APP") && app !== "D10") app += " APP";
+        if (app === "D10") app = "D10 APP";
+        return app;
+      })
+    );
+  }
+
+  function makeRecordFromForm(form) {
+    const ident = normalizeIdent(form.identifier.value);
+    const sectors = normalizeSectors(form.sectors.value);
+    const areas = normalizeAreas(form.areas.value, sectors);
+
+    const latText = form.lat.value.trim();
+    const lonText = form.lon.value.trim();
+
+    const record = {
+      sectors,
+      areas,
+      apps: normalizeApps(form.apps.value),
+      vscs: splitList(form.vscs.value),
+      contacts: splitList(form.contacts.value),
+      hours: splitList(form.hours.value),
+      airport_name: form.airportName.value.trim()
+    };
+
+    if (latText !== "") record.lat = Number(latText);
+    if (lonText !== "") record.lon = Number(lonText);
+
+    return { ident, record };
+  }
+
+  function loadCorrections() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    } catch (error) {
+      console.warn("Could not read airport corrections.", error);
+      return {};
+    }
+  }
+
+  function saveCorrections(corrections) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(corrections));
+  }
+
+  function applyOneCorrection(ident, record) {
+    const records = getRecords();
+    ident = normalizeIdent(ident);
+    records[ident] = record;
+
+    const alias = aliasForIdent(ident);
+    if (alias) {
+      records[alias] = JSON.parse(JSON.stringify(record));
+    }
+  }
+
+  function applySavedCorrections() {
+    buildDynamicSectorAliases();
+    const corrections = loadCorrections();
+    Object.keys(corrections).forEach((ident) => {
+      applyOneCorrection(ident, corrections[ident]);
+    });
+  }
+
+  function showMessage(message, isError) {
+    const existing = document.getElementById("correctionMessage");
+    if (!existing) return;
+
+    existing.textContent = message;
+    existing.className = isError ? "correction-message error" : "correction-message";
+  }
+
+  function fillFormFromRecord(form, ident, record) {
+    form.identifier.value = ident || "";
+    form.airportName.value = record.airport_name || "";
+    form.sectors.value = (record.sectors || []).join(", ");
+    form.areas.value = (record.areas || []).join(", ");
+    form.apps.value = (record.apps || []).join(", ");
+    form.vscs.value = (record.vscs || []).join(", ");
+    form.contacts.value = (record.contacts || []).join(", ");
+    form.hours.value = (record.hours || []).join(", ");
+    form.lat.value = record.lat ?? "";
+    form.lon.value = record.lon ?? "";
+  }
+
+  function clearForm(form) {
+    Array.from(form.elements).forEach((element) => {
+      if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
+        element.value = "";
+      }
+    });
+  }
+
+  function openModal(mode) {
+    const modal = document.getElementById("correctionModal");
+    const form = document.getElementById("correctionForm");
+    const title = document.getElementById("correctionModalTitle");
+    const submitButton = document.getElementById("correctionSubmit");
+    const currentSearch = document.getElementById("airportInput");
+
+    clearForm(form);
+    showMessage("", false);
+
+    form.dataset.mode = mode;
+    title.textContent = mode === "add" ? "Add Missing Airport" : "Amend Airport";
+    submitButton.textContent = mode === "add" ? "Add Airport" : "Save Amendment";
+
+    if (mode === "amend") {
+      const currentIdent = normalizeIdent(currentSearch ? currentSearch.value : "");
+      if (currentIdent) {
+        const found = lookupRecord(currentIdent);
+        if (found) {
+          fillFormFromRecord(form, found.ident, found.record);
+        } else {
+          form.identifier.value = currentIdent;
+          showMessage("No existing record found. Use Add Missing Airport if this is a new airport.", true);
+        }
+      }
+    }
+
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("correction-modal-open");
+    setTimeout(() => form.identifier.focus(), 0);
+  }
+
+  function closeModal() {
+    const modal = document.getElementById("correctionModal");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("correction-modal-open");
+  }
+
+  function refreshCurrentLookup(ident) {
+    const input = document.getElementById("airportInput");
+    if (!input) return;
+
+    input.value = ident;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    input.focus();
+  }
+
+  function createCorrectionUi() {
+    if (document.getElementById("correctionTools")) return;
+
+    const style = document.createElement("style");
+    style.textContent = `
+      .correction-tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-top: 10px;
+      }
+
+      .correction-tools button,
+      .correction-modal button {
+        border: 0;
+        border-radius: 10px;
+        background: #156082;
+        color: #ffffff;
+        font-weight: 700;
+        padding: 10px 14px;
+        cursor: pointer;
+      }
+
+      .correction-tools button.secondary {
+        background: #475569;
+      }
+
+      .correction-modal[aria-hidden="true"] {
+        display: none;
+      }
+
+      .correction-modal[aria-hidden="false"] {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(15, 23, 42, 0.78);
+      }
+
+      .correction-panel {
+        width: min(920px, 100%);
+        max-height: 92vh;
+        overflow: auto;
+        background: #ffffff;
+        color: #0f172a;
+        border-radius: 18px;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+        padding: 24px;
+      }
+
+      .correction-panel h2 {
+        margin: 0 0 6px;
+        font-size: 1.45rem;
+      }
+
+      .correction-panel p {
+        margin: 0 0 18px;
+        color: #475569;
+      }
+
+      .correction-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .correction-field.full {
+        grid-column: 1 / -1;
+      }
+
+      .correction-field label {
+        display: block;
+        font-weight: 700;
+        margin-bottom: 5px;
+      }
+
+      .correction-field input,
+      .correction-field textarea {
+        width: 100%;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font: inherit;
+        box-sizing: border-box;
+      }
+
+      .correction-field textarea {
+        min-height: 72px;
+        resize: vertical;
+      }
+
+      .correction-help {
+        margin-top: 4px;
+        color: #64748b;
+        font-size: 0.85rem;
+      }
+
+      .correction-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .correction-actions .cancel {
+        background: #64748b;
+      }
+
+      .correction-message {
+        margin-top: 12px;
+        font-weight: 700;
+        color: #166534;
+      }
+
+      .correction-message.error {
+        color: #b91c1c;
+      }
+
+      body.correction-modal-open {
+        overflow: hidden;
+      }
+
+      @media (max-width: 720px) {
+        .correction-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+
+    const tools = document.createElement("div");
+    tools.id = "correctionTools";
+    tools.className = "correction-tools";
+    tools.innerHTML = `
+      <button type="button" id="addAirportButton">Add Missing Airport</button>
+      <button type="button" id="amendAirportButton" class="secondary">Amend Airport Info</button>
+    `;
+
+    const searchRow = document.querySelector(".search-row");
+    if (searchRow) {
+      searchRow.appendChild(tools);
+    }
+
+    const modal = document.createElement("div");
+    modal.id = "correctionModal";
+    modal.className = "correction-modal";
+    modal.setAttribute("aria-hidden", "true");
+    modal.innerHTML = `
+      <div class="correction-panel" role="dialog" aria-modal="true" aria-labelledby="correctionModalTitle">
+        <h2 id="correctionModalTitle">Airport Correction</h2>
+        <p>Add or amend a local airport record. Separate multiple sectors, apps, VSCS entries, contacts, or hours with commas.</p>
+
+        <form id="correctionForm">
+          <div class="correction-grid">
+            <div class="correction-field">
+              <label for="corrIdentifier">Airport Identifier</label>
+              <input id="corrIdentifier" name="identifier" type="text" maxlength="5" required />
+              <div class="correction-help">Examples: F82, KGGG, GGG</div>
+            </div>
+
+            <div class="correction-field">
+              <label for="corrAirportName">Airport Name</label>
+              <input id="corrAirportName" name="airportName" type="text" />
+            </div>
+
+            <div class="correction-field">
+              <label for="corrSectors">Sector</label>
+              <input id="corrSectors" name="sectors" type="text" placeholder="LBB L, LBB-L, LBB 64, or 64" />
+              <div class="correction-help">Common shorthand is accepted and normalized.</div>
+            </div>
+
+            <div class="correction-field">
+              <label for="corrAreas">Area</label>
+              <input id="corrAreas" name="areas" type="text" placeholder="RDR, UKW, JEN, DAL, BYP, CQY" />
+              <div class="correction-help">Leave blank to derive area from the sector when possible.</div>
+            </div>
+
+            <div class="correction-field">
+              <label for="corrApps">Approach</label>
+              <input id="corrApps" name="apps" type="text" placeholder="LBB, LBB APP, SPS APP" />
+            </div>
+
+            <div class="correction-field">
+              <label for="corrVscs">APP VSCS</label>
+              <input id="corrVscs" name="vscs" type="text" placeholder='346 (05), 353 (04), 337 (08)' />
+            </div>
+
+            <div class="correction-field full">
+              <label for="corrContacts">APP Contact / Notes</label>
+              <textarea id="corrContacts" name="contacts" placeholder="Phone number, DO NOT RELAY, or operational note"></textarea>
+            </div>
+
+            <div class="correction-field">
+              <label for="corrHours">APP Hours</label>
+              <input id="corrHours" name="hours" type="text" placeholder="0000-2359" />
+            </div>
+
+            <div class="correction-field">
+              <label for="corrLat">Latitude</label>
+              <input id="corrLat" name="lat" type="number" step="any" placeholder="33.123456" />
+            </div>
+
+            <div class="correction-field">
+              <label for="corrLon">Longitude</label>
+              <input id="corrLon" name="lon" type="number" step="any" placeholder="-101.123456" />
+            </div>
+          </div>
+
+          <div id="correctionMessage" class="correction-message"></div>
+
+          <div class="correction-actions">
+            <button type="button" class="cancel" id="correctionCancel">Cancel</button>
+            <button type="submit" id="correctionSubmit">Save</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById("addAirportButton").addEventListener("click", () => openModal("add"));
+    document.getElementById("amendAirportButton").addEventListener("click", () => openModal("amend"));
+    document.getElementById("correctionCancel").addEventListener("click", closeModal);
+
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) closeModal();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && modal.getAttribute("aria-hidden") === "false") closeModal();
+    });
+
+    document.getElementById("correctionForm").addEventListener("submit", function (event) {
+      event.preventDefault();
+
+      const mode = this.dataset.mode;
+      const { ident, record } = makeRecordFromForm(this);
+
+      if (!ident) {
+        showMessage("Airport identifier is required.", true);
+        return;
+      }
+
+      if (Number.isNaN(record.lat) || Number.isNaN(record.lon)) {
+        showMessage("Latitude and longitude must be valid numbers when entered.", true);
+        return;
+      }
+
+      const records = getRecords();
+      const exists = Boolean(lookupRecord(ident));
+
+      if (mode === "add" && exists) {
+        showMessage("That airport already exists. Use Amend Airport Info instead.", true);
+        return;
+      }
+
+      if (mode === "amend" && !exists) {
+        showMessage("That airport does not exist yet. Use Add Missing Airport instead.", true);
+        return;
+      }
+
+      const corrections = loadCorrections();
+      corrections[ident] = record;
+      saveCorrections(corrections);
+      applyOneCorrection(ident, record);
+
+      showMessage(mode === "add" ? "Airport added for this browser." : "Airport amendment saved for this browser.", false);
+      refreshCurrentLookup(ident);
+
+      setTimeout(closeModal, 600);
+    });
+  }
+
+  applySavedCorrections();
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", createCorrectionUi);
+  } else {
+    createCorrectionUi();
+  }
+})();

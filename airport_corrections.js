@@ -330,8 +330,7 @@
     form.vscs.value = (record.vscs || []).join(", ");
     form.contacts.value = (record.contacts || []).join(", ");
     form.hours.value = (record.hours || []).join(", ");
-    form.lat.value = record.lat ?? "";
-    form.lon.value = record.lon ?? "";
+
   }
 
   function clearForm(form) {
@@ -777,18 +776,15 @@
 
   function fillPirepForm(form, ident, record) {
     form.identifier.value = ident || "";
-    form.navName.value = record.airport_name || record.name || "";
+
     form.recordType.value = record.record_type || "WAYPOINT";
     form.nearestWx.value = record.nearest_wx || "";
-    form.lat.value = record.lat ?? "";
-    form.lon.value = record.lon ?? "";
+
     form.notes.value = Array.isArray(record.contacts) ? record.contacts.join(", ") : "";
   }
 
   function makePirepRecordFromForm(form) {
     const ident = normalizeIdent(form.identifier.value);
-    const latText = form.lat.value.trim();
-    const lonText = form.lon.value.trim();
 
     const record = {
       sectors: [],
@@ -797,13 +793,10 @@
       vscs: [],
       contacts: form.notes.value.trim() ? [form.notes.value.trim()] : [],
       hours: [],
-      airport_name: form.navName.value.trim() || ident,
+      airport_name: ident,
       record_type: form.recordType.value || "WAYPOINT",
       nearest_wx: normalizeIdent(form.nearestWx.value)
     };
-
-    if (latText !== "") record.lat = Math.round(Number(latText) * 10000) / 10000;
-    if (lonText !== "") record.lon = Math.round(Number(lonText) * 10000) / 10000;
 
     return { ident, record };
   }
@@ -875,7 +868,7 @@
     modal.innerHTML = `
       <div class="correction-panel" role="dialog" aria-modal="true" aria-labelledby="pirepNavModalTitle">
         <h2 id="pirepNavModalTitle">Add or Amend Waypoint/Navaid for PIREP</h2>
-        <p>Use this form for PIREP reference fixes, VORs, VORTACs, and waypoints. Saving an existing identifier replaces the old waypoint/navaid data.</p>
+        <p>Use this form for PIREP reference fixes, VORs, VORTACs, and waypoints. Saving an existing identifier replaces the old waypoint/navaid weather station data.</p>
 
         <form id="pirepNavForm">
           <div class="correction-grid">
@@ -895,30 +888,13 @@
               </select>
             </div>
 
-            <div class="correction-field full">
-              <label for="pirepNavName">Waypoint/Navaid Name</label>
-              <input id="pirepNavName" name="navName" type="text" required />
-            </div>
-
-            <div class="correction-field">
+<div class="correction-field">
               <label for="pirepNearestWx">Nearest Weather Reporting Station</label>
               <input id="pirepNearestWx" name="nearestWx" type="text" maxlength="4" required />
               <div class="correction-help">Enter the valid reporting station identifier only, such as SHV, F00, SPS, GGG.</div>
             </div>
 
-            <div class="correction-field">
-              <label for="pirepLat">Latitude</label>
-              <input id="pirepLat" name="lat" type="number" step="0.0001" placeholder="33.1234" />
-              <div class="correction-help">Optional. Four decimals is enough when approximate.</div>
-            </div>
-
-            <div class="correction-field">
-              <label for="pirepLon">Longitude</label>
-              <input id="pirepLon" name="lon" type="number" step="0.0001" placeholder="-101.1234" />
-              <div class="correction-help">Optional. Four decimals is enough when approximate.</div>
-            </div>
-
-            <div class="correction-field full">
+<div class="correction-field full">
               <label for="pirepNotes">Notes</label>
               <textarea id="pirepNotes" name="notes" placeholder="Optional notes for the waypoint/navaid"></textarea>
             </div>
@@ -953,22 +929,12 @@
         return;
       }
 
-      if (!record.airport_name) {
-        showPirepMessage("Waypoint/navaid name is required.", true);
-        return;
-      }
-
-      if (!record.nearest_wx) {
+if (!record.nearest_wx) {
         showPirepMessage("Nearest weather reporting station is required.", true);
         return;
       }
 
-      if (Number.isNaN(record.lat) || Number.isNaN(record.lon)) {
-        showPirepMessage("Latitude and longitude must be valid numbers when entered.", true);
-        return;
-      }
-
-      const corrections = loadCorrections();
+const corrections = loadCorrections();
       corrections[ident] = record;
       saveCorrections(corrections);
       applyPirepCorrection(ident, record);

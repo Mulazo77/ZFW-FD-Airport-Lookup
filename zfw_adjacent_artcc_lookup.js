@@ -2,6 +2,7 @@
   "use strict";
 
   let lastAdjacentIdent = "";
+  let lastAdjacentText = "";
 
   function normalizeIdent(value){ return String(value || "").trim().toUpperCase(); }
 
@@ -32,25 +33,33 @@
 
   function setText(id, value){
     const el = document.getElementById(id);
-    if(el) el.textContent = value || "—";
+    if(el){ el.textContent = value || "—"; el.title = ""; }
   }
 
   function setHtml(id, value){
     const el = document.getElementById(id);
-    if(el) el.innerHTML = value || "—";
+    if(el){ el.innerHTML = value || "—"; el.title = ""; }
   }
 
   function forceStatus(value){
     const status = document.getElementById("status");
     if(!status) return;
     status.textContent = value;
-    status.classList.remove("error", "not-found");
+    status.classList.remove("error","not-found");
     status.style.color = "#ffd166";
   }
 
   function clearMap(){
     const mapCard = document.querySelector(".map-card") || document.getElementById("zfwMap")?.closest(".card");
     if(mapCard) mapCard.style.display = "none";
+  }
+
+  function clearHighlights(){
+    document.querySelectorAll(".card").forEach(card => {
+      card.classList.remove("nearest-wx-highlight","highlight","active","warning");
+      card.style.borderColor = "";
+      card.style.boxShadow = "";
+    });
   }
 
   function showAdjacent(info){
@@ -61,33 +70,43 @@
     const center = centers[centerId] || { name: centerId + " ARTCC", fdcd: rec.fdcd || "" };
     const fdcd = rec.fdcd || center.fdcd || "";
 
-    lastAdjacentIdent = info.ident;
+    const displayIdent = normalizeIdent(info.ident).startsWith("K") ? normalizeIdent(info.ident).slice(1) : normalizeIdent(info.ident);
+    const line = `${displayIdent}: ${centerId} FD/CD ${fdcd}`;
+
+    lastAdjacentIdent = displayIdent;
+    lastAdjacentText = line;
+
+    clearHighlights();
 
     setText("sector", "Outside ZFW");
     setText("area", centerId);
     setText("approach", "Outside ZFW ARTCC");
     setText("appVscs", "—");
-    setHtml("appContact", `${rec.name || info.ident} is in ${center.name || centerId} airspace. ${centerId} Flight Data Clearance Delivery: ${fdcd}`);
+    setHtml("appContact", `${rec.name || displayIdent} is in ${center.name || centerId} airspace. ${centerId} Flight Data Clearance Delivery: ${fdcd}`);
     setText("appHours", "0000-2359");
-    setText("airportName", rec.name || info.ident);
+    setText("airportName", rec.name || displayIdent);
+
+    // Adjacent ARTCC wrong-airspace calls do not need a PIREP weather station.
     setText("nearestWeather", "—");
 
-    document.querySelectorAll(".card").forEach(card => {
-      card.classList.remove("nearest-wx-highlight","highlight","active","warning");
-      card.style.borderColor = "";
-      card.style.boxShadow = "";
-    });
-
     const contactCard = document.getElementById("appContact")?.closest(".card");
-    if(contactCard) contactCard.classList.add("nearest-wx-highlight");
+    if(contactCard){
+      contactCard.classList.add("nearest-wx-highlight");
+    }
 
-    forceStatus(`${info.ident}: ${centerId} FD/CD ${fdcd}`);
+    forceStatus(line);
     clearMap();
+
+    const input = document.getElementById("airportInput");
+    if(input && normalizeIdent(input.value)){
+      setTimeout(() => { input.value = ""; }, 650);
+    }
   }
 
   function handleInput(){
     const input = document.getElementById("airportInput");
     if(!input) return;
+
     const ident = normalizeIdent(input.value);
     if(!ident) return;
 
@@ -101,13 +120,16 @@
 
   function boot(){
     const input = document.getElementById("airportInput");
-    if(input) ["input","change","keyup","blur"].forEach(evt => input.addEventListener(evt, handleInput));
+    if(input){
+      ["input","change","keyup","blur"].forEach(evt => input.addEventListener(evt, handleInput));
+    }
 
-    setInterval(function(){
+    setInterval(() => {
       const status = document.getElementById("status");
       if(lastAdjacentIdent && status && /NO MATCH|NOT FOUND/i.test(status.textContent || "")){
         const adjacent = getAdjacentRecord(lastAdjacentIdent);
         if(adjacent) showAdjacent(adjacent);
+        else if(lastAdjacentText) forceStatus(lastAdjacentText);
       }
     }, 300);
   }

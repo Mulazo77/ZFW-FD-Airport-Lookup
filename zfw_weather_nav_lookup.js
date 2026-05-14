@@ -9,6 +9,11 @@
 
   function normalizeIdent(value){ return String(value || "").trim().toUpperCase(); }
 
+  function isCompleteLookupIdent(ident){
+    ident = normalizeIdent(ident);
+    return ident.length >= 3;
+  }
+
   function ensureAirportData(){
     if(!window.AIRPORT_DATA) window.AIRPORT_DATA = { records: {} };
     if(!window.AIRPORT_DATA.records) window.AIRPORT_DATA.records = {};
@@ -270,6 +275,12 @@
     if(!typedIdent){
       restoreLast(output);
       if(lastFoundWasNav && statusLooksBad()) forceStatus("Found");
+      return;
+    }
+
+    if(!isCompleteLookupIdent(typedIdent)){
+      output.textContent = "—";
+      output.title = "";
       return;
     }
 

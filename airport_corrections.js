@@ -560,7 +560,7 @@
             <div class="correction-field">
               <label for="corrSectors">Sector</label>
               <input id="corrSectors" name="sectors" type="text" placeholder="LBB L, LBB-L, LBB 64, or 64" />
-              <div class="correction-help"></div>
+              <div class="correction-help">Common shorthand is accepted and normalized.</div>
             </div>
 
             <div class="correction-field">
@@ -582,7 +582,7 @@
             <div class="correction-field full">
               <label for="corrContacts">APP Contact / Notes</label>
               <textarea id="corrContacts" name="contacts" placeholder="Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)"></textarea>
-              
+              <div class="correction-help">Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)</div>
             </div>
 
             <div class="correction-field">
@@ -1092,7 +1092,7 @@ const corrections = loadCorrections();
   const LOW_SECTORS = [
     "",
     "ABI 20", "ADM 21", "BYP 35", "CQY 39", "DAL 29", "DON 29",
-    "FUZ 38", "GGG 37", "JEN 56", "LBBL 64", "MLU 31",
+    "FUZ 38", "GGG 37", "GNP 46", "JEN 56", "LBBL 64", "MLU 31",
     "RDR 66", "SJT 41", "SPS 34", "TXK 27", "UKW 48"
   ];
 
@@ -1100,7 +1100,7 @@ const corrections = loadCorrections();
 
   const APPROACHES = [
     "N/A",
-    "D10 APP", "DFW APP", "LBB APP", "SPS APP", "LTS APP", "FSI APP",
+    "D10 APP", "LBB APP", "SPS APP", "LTS APP", "FSI APP",
     "GGG APP", "SHV APP", "TYR APP", "ACT APP", "ABI APP", "SJT APP",
     "MLU APP", "FSM APP", "OKC APP", "TUL APP", "LAW APP"
   ];
@@ -1203,16 +1203,56 @@ const corrections = loadCorrections();
     }
   }
 
+
+  function removeAreaField() {
+    const areaInput = document.querySelector('#correctionForm [name="area"], #correctionForm [name="areas"], #correctionForm #area, #correctionForm #airportArea');
+    const areaField = areaInput ? areaInput.closest(".correction-field") : null;
+    if (areaField) {
+      areaField.remove();
+    }
+  }
+
+
+  function areaFromSectorValue(sectorValue) {
+    const sector = String(sectorValue || "").toUpperCase();
+    if (sector.includes("LBB")) return "RDR";
+    if (sector.includes("SPS") || sector.includes("UKW")) return "UKW";
+    if (sector.includes("DAL")) return "DAL";
+    if (sector.includes("CQY")) return "CQY";
+    if (sector.includes("BYP") || sector.includes("TXK")) return "BYP";
+    if (sector.includes("JEN")) return "JEN";
+    if (sector.includes("RDR")) return "RDR";
+    return "";
+  }
+
+  function ensureDerivedAreaField(form) {
+    if (!form) return;
+
+    const sectorField = form.querySelector('[name="sector"], [name="sectors"], #sector, #airportSector');
+    const sectorValue = sectorField ? sectorField.value : "";
+    const derivedArea = areaFromSectorValue(sectorValue);
+
+    let hiddenArea = form.querySelector('input[name="area"]');
+    if (!hiddenArea) {
+      hiddenArea = document.createElement("input");
+      hiddenArea.type = "hidden";
+      hiddenArea.name = "area";
+      form.appendChild(hiddenArea);
+    }
+
+    hiddenArea.value = derivedArea;
+  }
+
   function enhanceAirportForm() {
     const form = document.getElementById("correctionForm");
     if (!form) return;
 
+    removeAreaField();
+
     const sectorInput = form.querySelector('[name="sector"], [name="sectors"], #sector, #airportSector');
-    const areaInput = form.querySelector('[name="area"], [name="areas"], #area, #airportArea');
     const appInput = form.querySelector('[name="app"], [name="apps"], [name="approach"], #approach, #airportApproach');
 
     replaceInputWithSelect(sectorInput, LOW_SECTORS);
-    replaceInputWithSelect(areaInput, AREAS);
     replaceInputWithSelect(appInput, APPROACHES);
 
     createGpsField();
@@ -1220,6 +1260,7 @@ const corrections = loadCorrections();
     if (form.dataset.gpsPatched !== "true") {
       form.dataset.gpsPatched = "true";
       form.addEventListener("submit", function (event) {
+        ensureDerivedAreaField(form);
         const gpsInput = document.getElementById("airportGpsPaste");
         if (!gpsInput || !gpsInput.value.trim()) return;
 

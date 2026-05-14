@@ -560,7 +560,7 @@
             <div class="correction-field">
               <label for="corrSectors">Sector</label>
               <input id="corrSectors" name="sectors" type="text" placeholder="LBB L, LBB-L, LBB 64, or 64" />
-              <div class="correction-help">Common shorthand is accepted and normalized.</div>
+              <div class="correction-help"></div>
             </div>
 
             <div class="correction-field">
@@ -582,7 +582,7 @@
             <div class="correction-field full">
               <label for="corrContacts">APP Contact / Notes</label>
               <textarea id="corrContacts" name="contacts" placeholder="Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)"></textarea>
-              <div class="correction-help">Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)</div>
+              
             </div>
 
             <div class="correction-field">
@@ -1092,7 +1092,7 @@ const corrections = loadCorrections();
   const LOW_SECTORS = [
     "",
     "ABI 20", "ADM 21", "BYP 35", "CQY 39", "DAL 29", "DON 29",
-    "FUZ 38", "GGG 37", "GNP 46", "JEN 56", "LBBL 64", "MLU 31",
+    "FUZ 38", "GGG 37", "JEN 56", "LBBL 64", "MLU 31",
     "RDR 66", "SJT 41", "SPS 34", "TXK 27", "UKW 48"
   ];
 

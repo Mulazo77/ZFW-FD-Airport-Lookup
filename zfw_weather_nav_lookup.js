@@ -18,12 +18,12 @@
     return "";
   }
 
-  function cloneRecord(record){
+  function clone(record){
     return JSON.parse(JSON.stringify(record || {}));
   }
 
-  function normalizeLookupRecord(ident, sourceRecord){
-    const record = cloneRecord(sourceRecord);
+  function normalizeRecord(ident, sourceRecord){
+    const record = clone(sourceRecord);
     record.sectors = Array.isArray(record.sectors) ? record.sectors : [];
     record.areas = Array.isArray(record.areas) ? record.areas : [];
     record.apps = Array.isArray(record.apps) ? record.apps : [];
@@ -44,17 +44,16 @@
   function mergeNavData(){
     const records = ensureAirportData();
     const navData = window.ZFW_NAV_DATA || {};
+
     Object.keys(navData).forEach(function(rawIdent){
       const ident = normalizeIdent(rawIdent);
       if(!ident) return;
 
-      const record = normalizeLookupRecord(ident, navData[rawIdent]);
+      const record = normalizeRecord(ident, navData[rawIdent]);
       records[ident] = record;
 
       const alias = aliasForIdent(ident);
-      if(alias && !records[alias]){
-        records[alias] = cloneRecord(record);
-      }
+      if(alias && !records[alias]) records[alias] = clone(record);
     });
   }
 
@@ -95,11 +94,7 @@
 
       const distanceNm = nmBetween(record.lat, record.lon, station.lat, station.lon);
       if(!best || distanceNm < best.distanceNm){
-        best = {
-          id: station.id,
-          name: station.name || "",
-          distanceNm: distanceNm
-        };
+        best = { id: station.id, name: station.name || "", distanceNm: distanceNm };
       }
     });
 

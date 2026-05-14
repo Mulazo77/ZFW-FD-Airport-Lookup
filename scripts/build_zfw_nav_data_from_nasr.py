@@ -112,6 +112,15 @@ def find_current_cycle_page() -> str:
 
 
 def find_csv_zip_urls(cycle_page: str) -> Dict[str, str]:
+    """
+    Locate FAA NASR CSV ZIP files.
+
+    Important:
+    The FAA page also links Layout_Data/*.txt reference/layout files with names like fix_rf.txt.
+    Those are NOT CSV ZIPs and must not be selected. This function only accepts URLs ending
+    in .zip and containing _CSV in the filename. If the page parser finds layout files, they
+    are ignored and the known FAA 28DaySub/extra CSV ZIP pattern is used.
+    """
     html = fetch_text(cycle_page)
     links = parse_links(html)
 
@@ -120,36 +129,48 @@ def find_csv_zip_urls(cycle_page: str) -> Dict[str, str]:
     for text, href in links:
         if not href:
             continue
+
         url = absolute_url(href, cycle_page)
-        upper = url.upper()
-        label = f"{text} {url}".upper()
+        upper_url = url.upper()
+        upper_label = f"{text} {url}".upper()
+
+        # Only accept actual CSV ZIP downloads.
+        if not upper_url.endswith(".ZIP") or "_CSV" not in upper_url:
+            continue
 
         for group in CSV_GROUPS:
-            # Individual group links contain e.g. FIX_CSV.zip, NAV_CSV.zip, WXL_CSV.zip.
-            if f"_{group}_CSV.ZIP" in upper or f"({group})" in label:
+            if f"_{group}_CSV.ZIP" in upper_url or f"{group}_CSV.ZIP" in upper_label:
                 found[group] = url
 
-    # Fallback direct URL pattern for FAA's current 28DaySub extra links.
-    if not all(k in found for k in ["FIX", "NAV", "WXL"]):
-        m = re.search(r"/(\d{4})-(\d{2})-(\d{2})/?$", cycle_page)
-        if m:
-            yyyy, mm, dd = m.groups()
-            month_name = {
-                "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May", "06": "Jun",
-                "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"
-            }[mm]
-            pattern = f"https://nfdc.faa.gov/webContent/28DaySub/extra/{dd}_{month_name}_{yyyy}_{{group}}_CSV.zip"
-            for group in CSV_GROUPS:
-                found.setdefault(group, pattern.format(group=group))
+    # Always build a fallback direct pattern from the NASR cycle date.
+    m = re.search(r"/(\d{4})-(\d{2})-(\d{2})/?$", cycle_page)
+    if m:
+        yyyy, mm, dd = m.groups()
+        month_name = {
+            "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May", "06": "Jun",
+            "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"
+        }[mm]
+        pattern = f"https://nfdc.faa.gov/webContent/28DaySub/extra/{dd}_{month_name}_{yyyy}_{{group}}_CSV.zip"
+        for group in CSV_GROUPS:
+            if group not in found:
+                found[group] = pattern.format(group=group)
 
     missing = [g for g in ["FIX", "NAV", "WXL"] if g not in found]
     if missing:
-        raise RuntimeError(f"Could not locate required NASR CSV groups: {missing}")
+        raise RuntimeError(f"Could not locate required NASR CSV ZIP groups: {missing}")
 
     return found
 
 
 def read_zip_csvs(zip_bytes: bytes) -> Iterable[Tuple[str, Dict[str, str]]]:
+    if not zip_bytes.startswith(b"PK"):
+        preview = zip_bytes[:200].decode("utf-8", errors="replace")
+        raise RuntimeError(
+            "Downloaded NASR source is not a ZIP file. "
+            "The FAA URL may have changed or returned an error page. "
+            f"Preview: {preview}"
+        )
+
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         for name in zf.namelist():
             if not name.lower().endswith(".csv"):
@@ -460,7 +481,7 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    sample_checks = ["WSTEX", "CHMLI", "BSKAT", "VEEDE", "WUNUR", "ZOOOO", "TISEE", "GUTZZ", "SIYGO", "DAWGZ", "BYP", "EMG", "UKW"]
+    sample_checks = ["WSTEX", "EIC", "CHMLI", "BSKAT", "VEEDE", "WUNUR", "ZOOOO", "TISEE", "GUTZZ", "SIYGO", "DAWGZ", "BYP", "EMG", "UKW"]
     lines = [
         "# ZFW NASR Navdata Audit",
         "",

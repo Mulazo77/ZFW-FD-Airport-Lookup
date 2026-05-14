@@ -677,3 +677,297 @@
     createCorrectionUi();
   }
 })();
+
+
+/* PIREP waypoint/navaid add-amend tool */
+(function () {
+  "use strict";
+
+  const STORAGE_KEY = "zfwPirepNavCorrections";
+
+  function normalizeIdent(value) {
+    return String(value || "").trim().toUpperCase();
+  }
+
+  function getAirportRecords() {
+    if (!window.AIRPORT_DATA) window.AIRPORT_DATA = { records: {} };
+    if (!window.AIRPORT_DATA.records) window.AIRPORT_DATA.records = {};
+    return window.AIRPORT_DATA.records;
+  }
+
+  function getNavData() {
+    if (!window.ZFW_NAV_DATA) window.ZFW_NAV_DATA = {};
+    return window.ZFW_NAV_DATA;
+  }
+
+  function loadCorrections() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    } catch (error) {
+      console.warn("Could not read PIREP waypoint/navaid corrections.", error);
+      return {};
+    }
+  }
+
+  function saveCorrections(corrections) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(corrections));
+  }
+
+  function applyPirepCorrection(ident, record) {
+    const navData = getNavData();
+    const airportRecords = getAirportRecords();
+
+    ident = normalizeIdent(ident);
+    delete navData[ident];
+    delete airportRecords[ident];
+
+    navData[ident] = JSON.parse(JSON.stringify(record));
+    airportRecords[ident] = JSON.parse(JSON.stringify(record));
+  }
+
+  function applySavedPirepCorrections() {
+    const corrections = loadCorrections();
+    Object.keys(corrections).forEach(function (ident) {
+      applyPirepCorrection(ident, corrections[ident]);
+    });
+  }
+
+  function findExistingRecord(ident) {
+    ident = normalizeIdent(ident);
+    const navData = getNavData();
+    const airportRecords = getAirportRecords();
+
+    if (navData[ident]) return navData[ident];
+    if (airportRecords[ident]) return airportRecords[ident];
+
+    return null;
+  }
+
+  function showPirepMessage(message, isError) {
+    const msg = document.getElementById("pirepNavMessage");
+    if (!msg) return;
+
+    msg.textContent = message;
+    msg.className = isError ? "correction-message error" : "correction-message";
+  }
+
+  function clearPirepForm(form) {
+    Array.from(form.elements).forEach(function (element) {
+      if (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.tagName === "SELECT") {
+        element.value = "";
+      }
+    });
+  }
+
+  function fillPirepForm(form, ident, record) {
+    form.identifier.value = ident || "";
+    form.navName.value = record.airport_name || record.name || "";
+    form.recordType.value = record.record_type || "WAYPOINT";
+    form.nearestWx.value = record.nearest_wx || "";
+    form.lat.value = record.lat ?? "";
+    form.lon.value = record.lon ?? "";
+    form.notes.value = Array.isArray(record.contacts) ? record.contacts.join(", ") : "";
+  }
+
+  function makePirepRecordFromForm(form) {
+    const ident = normalizeIdent(form.identifier.value);
+    const latText = form.lat.value.trim();
+    const lonText = form.lon.value.trim();
+
+    const record = {
+      sectors: [],
+      areas: [],
+      apps: [],
+      vscs: [],
+      contacts: form.notes.value.trim() ? [form.notes.value.trim()] : [],
+      hours: [],
+      airport_name: form.navName.value.trim() || ident,
+      record_type: form.recordType.value || "WAYPOINT",
+      nearest_wx: normalizeIdent(form.nearestWx.value)
+    };
+
+    if (latText !== "") record.lat = Math.round(Number(latText) * 10000) / 10000;
+    if (lonText !== "") record.lon = Math.round(Number(lonText) * 10000) / 10000;
+
+    return { ident, record };
+  }
+
+  function openPirepModal() {
+    const modal = document.getElementById("pirepNavModal");
+    const form = document.getElementById("pirepNavForm");
+    const input = document.getElementById("airportInput");
+
+    clearPirepForm(form);
+    showPirepMessage("", false);
+
+    const currentIdent = normalizeIdent(input ? input.value : "");
+    if (currentIdent) {
+      const existing = findExistingRecord(currentIdent);
+      if (existing) {
+        fillPirepForm(form, currentIdent, existing);
+        showPirepMessage("Existing waypoint/navaid loaded. Saving will replace the old data.", false);
+      } else {
+        form.identifier.value = currentIdent;
+      }
+    }
+
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("correction-modal-open");
+    setTimeout(function () { form.identifier.focus(); }, 0);
+  }
+
+  function closePirepModal() {
+    const modal = document.getElementById("pirepNavModal");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("correction-modal-open");
+  }
+
+  function refreshCurrentLookup(ident) {
+    const input = document.getElementById("airportInput");
+    if (!input) return;
+
+    input.value = ident;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    if (window.ZFW_UPDATE_NEAREST_WX) {
+      setTimeout(window.ZFW_UPDATE_NEAREST_WX, 0);
+      setTimeout(window.ZFW_UPDATE_NEAREST_WX, 100);
+    }
+
+    input.focus();
+  }
+
+  function createPirepUi() {
+    if (document.getElementById("addPirepNavButton")) return;
+
+    const tools = document.getElementById("correctionTools");
+    if (tools) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.id = "addPirepNavButton";
+      button.className = "secondary";
+      button.textContent = "Add Waypoint/Navaid for PIREP";
+      tools.appendChild(button);
+      button.addEventListener("click", openPirepModal);
+    }
+
+    const modal = document.createElement("div");
+    modal.id = "pirepNavModal";
+    modal.className = "correction-modal";
+    modal.setAttribute("aria-hidden", "true");
+    modal.innerHTML = `
+      <div class="correction-panel" role="dialog" aria-modal="true" aria-labelledby="pirepNavModalTitle">
+        <h2 id="pirepNavModalTitle">Add or Amend Waypoint/Navaid for PIREP</h2>
+        <p>Use this form for PIREP reference fixes, VORs, VORTACs, and waypoints. Saving an existing identifier replaces the old waypoint/navaid data.</p>
+
+        <form id="pirepNavForm">
+          <div class="correction-grid">
+            <div class="correction-field">
+              <label for="pirepIdentifier">Waypoint/Navaid Identifier</label>
+              <input id="pirepIdentifier" name="identifier" type="text" maxlength="5" required />
+              <div class="correction-help">Examples: BYP, EMG, CHMLI, BSKAT</div>
+            </div>
+
+            <div class="correction-field">
+              <label for="pirepRecordType">Type</label>
+              <select id="pirepRecordType" name="recordType">
+                <option value="WAYPOINT">Waypoint</option>
+                <option value="NAVAID">Navaid</option>
+                <option value="VOR">VOR</option>
+                <option value="VORTAC">VORTAC</option>
+              </select>
+            </div>
+
+            <div class="correction-field full">
+              <label for="pirepNavName">Waypoint/Navaid Name</label>
+              <input id="pirepNavName" name="navName" type="text" required />
+            </div>
+
+            <div class="correction-field">
+              <label for="pirepNearestWx">Nearest Weather Reporting Station</label>
+              <input id="pirepNearestWx" name="nearestWx" type="text" maxlength="4" required />
+              <div class="correction-help">Enter the valid reporting station identifier only, such as SHV, F00, SPS, GGG.</div>
+            </div>
+
+            <div class="correction-field">
+              <label for="pirepLat">Latitude</label>
+              <input id="pirepLat" name="lat" type="number" step="0.0001" placeholder="33.1234" />
+              <div class="correction-help">Optional. Four decimals is enough when approximate.</div>
+            </div>
+
+            <div class="correction-field">
+              <label for="pirepLon">Longitude</label>
+              <input id="pirepLon" name="lon" type="number" step="0.0001" placeholder="-101.1234" />
+              <div class="correction-help">Optional. Four decimals is enough when approximate.</div>
+            </div>
+
+            <div class="correction-field full">
+              <label for="pirepNotes">Notes</label>
+              <textarea id="pirepNotes" name="notes" placeholder="Optional notes for the waypoint/navaid"></textarea>
+            </div>
+          </div>
+
+          <div id="pirepNavMessage" class="correction-message"></div>
+
+          <div class="correction-actions">
+            <button type="button" class="cancel" id="pirepNavCancel">Cancel</button>
+            <button type="submit" id="pirepNavSubmit">Save Waypoint/Navaid</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById("pirepNavCancel").addEventListener("click", closePirepModal);
+
+    modal.addEventListener("click", function (event) {
+      if (event.target === modal) closePirepModal();
+    });
+
+    document.getElementById("pirepNavForm").addEventListener("submit", function (event) {
+      event.preventDefault();
+
+      const result = makePirepRecordFromForm(this);
+      const ident = result.ident;
+      const record = result.record;
+
+      if (!ident) {
+        showPirepMessage("Waypoint/navaid identifier is required.", true);
+        return;
+      }
+
+      if (!record.airport_name) {
+        showPirepMessage("Waypoint/navaid name is required.", true);
+        return;
+      }
+
+      if (!record.nearest_wx) {
+        showPirepMessage("Nearest weather reporting station is required.", true);
+        return;
+      }
+
+      if (Number.isNaN(record.lat) || Number.isNaN(record.lon)) {
+        showPirepMessage("Latitude and longitude must be valid numbers when entered.", true);
+        return;
+      }
+
+      const corrections = loadCorrections();
+      corrections[ident] = record;
+      saveCorrections(corrections);
+      applyPirepCorrection(ident, record);
+
+      showPirepMessage("Waypoint/navaid saved and previous data replaced for this browser.", false);
+      refreshCurrentLookup(ident);
+      setTimeout(closePirepModal, 700);
+    });
+  }
+
+  applySavedPirepCorrections();
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", createPirepUi);
+  } else {
+    createPirepUi();
+  }
+})();

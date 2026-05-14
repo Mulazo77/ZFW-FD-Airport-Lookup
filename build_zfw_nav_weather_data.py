@@ -1,3 +1,7 @@
+# This script is intended to generate the complete zfw_nav_data.js from public FAA NASR FIX/NAV exports.
+# Use the current NASR cycle and filter records by ARTCC/Jurisdiction = ZFW or by ZFW bounding/sector criteria.
+# The app expects every generated fix/navaid in: window.ZFW_NAV_DATA = {...};
+
 #!/usr/bin/env python3
 """
 Builds zfw_nav_data.js and zfw_weather_stations.js from public FAA/AviationWeather data.

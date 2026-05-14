@@ -178,6 +178,36 @@
     }
   </style>
 
+
+  <style>
+    /* Readability/layout adjustment: slightly larger output boxes while keeping the map visible. */
+    .card {
+      padding: 10px 12px !important;
+      min-height: 66px !important;
+    }
+    .card-title {
+      font-size: 0.78rem !important;
+      margin-bottom: 5px !important;
+    }
+    .card-value {
+      font-size: 1.08rem !important;
+      line-height: 1.2 !important;
+    }
+    .airport-name-card,
+    .nearest-weather-card {
+      min-height: 62px !important;
+    }
+    .grid {
+      gap: 9px !important;
+    }
+    .map-card {
+      min-height: 285px !important;
+    }
+    #zfwMap {
+      max-height: 265px !important;
+    }
+  </style>
+
 </head>
 <body>
   <section id="loginPage">
@@ -219,7 +249,7 @@
         <div id="vscsCard" class="card"><div class="card-title">APP VSCS</div><div id="vscs" class="card-value">—</div></div>
         <div id="contactCard" class="card"><div class="card-title">APP CONTACT</div><div id="contact" class="card-value">—</div></div>
         <div id="hoursCard" class="card"><div class="card-title">APP HOURS</div><div id="hours" class="card-value">—</div></div>
-        <div id="airportNameCard" class="card airport-name-card"><div class="card-title">AIRPORT NAME</div><div id="airportName" class="card-value">—</div></div>
+        <div id="airportNameCard" class="card airport-name-card"><div class="card-title">AIRPORT/NAVAID NAME</div><div id="airportName" class="card-value">—</div></div>
         <div id="nearestWeatherCard" class="card nearest-weather-card"><div class="card-title">NEAREST WX STATION</div><div id="nearestWeather" class="card-value">—</div></div>
         <div id="mapCard" class="card map-card"><div class="card-title">ZFW ARTCC AIRSPACE</div><canvas id="zfwMap"></canvas></div>
       </section>

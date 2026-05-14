@@ -284,6 +284,12 @@
       return;
     }
 
+    if(!isCompleteLookupIdent(typedIdent)){
+      output.textContent = "—";
+      output.title = "";
+      return;
+    }
+
     const record = getRecord(typedIdent);
     if(record && isNavType(record)){ forceStatus("Found"); clearAirportOutputsForNav(record); }
 

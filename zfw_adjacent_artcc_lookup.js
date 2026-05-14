@@ -1,9 +1,6 @@
 (function(){
   "use strict";
 
-  let lastAdjacentIdent = "";
-  let lastAdjacentText = "";
-
   function normalizeIdent(value){
     return String(value || "").trim().toUpperCase();
   }
@@ -13,24 +10,17 @@
     return /^[A-Z0-9]{3}$/.test(ident) || /^K[A-Z0-9]{3}$/.test(ident);
   }
 
-  function airportAliases(ident){
+  function aliasesFor(ident){
     ident = normalizeIdent(ident);
     if(!isCompleteAirportIdent(ident)) return [];
-
-    const aliases = [ident];
-
-    if(ident.length === 4 && ident.startsWith("K")){
-      aliases.push(ident.slice(1));
-    } else if(ident.length === 3){
-      aliases.push("K" + ident);
-    }
-
-    return [...new Set(aliases)];
+    if(ident.length === 4 && ident.startsWith("K")) return [ident, ident.slice(1)];
+    if(ident.length === 3) return [ident, "K" + ident];
+    return [ident];
   }
 
   function getZfwRecord(ident){
     const records = window.AIRPORT_DATA?.records || {};
-    for(const alias of airportAliases(ident)){
+    for(const alias of aliasesFor(ident)){
       if(records[alias]) return records[alias];
     }
     return null;
@@ -39,11 +29,9 @@
   function getAdjacentRecord(ident){
     const db = window.ZFW_ADJACENT_ARTCC_AIRPORTS || {};
     const airports = db.airports || {};
-
-    for(const alias of airportAliases(ident)){
-      if(airports[alias]) return { ident: alias, record: airports[alias] };
+    for(const alias of aliasesFor(ident)){
+      if(airports[alias]) return { ident: alias.startsWith("K") ? alias.slice(1) : alias, record: airports[alias] };
     }
-
     return null;
   }
 
@@ -76,54 +64,43 @@
     if(mapCard) mapCard.style.display = "none";
   }
 
-  function forceStatus(value){
+  function setStatus(text, warning){
     const status = document.getElementById("status");
     if(status){
-      status.textContent = value;
+      status.textContent = text;
       status.classList.remove("error", "not-found");
-      status.style.color = "#ffd166";
+      status.style.color = warning ? "#ffd166" : "";
     }
   }
 
-  function clearStalePartialEntry(){
-    const input = document.getElementById("airportInput");
-    const ident = normalizeIdent(input ? input.value : "");
-
-    // No lookup should occur before 3 characters.
-    if(ident && ident.length < 3){
-      setText("sector", "—");
-      setText("area", "—");
-      setText("approach", "—");
-      setText("appVscs", "—");
-      setHtml("appContact", "—");
-      setText("appHours", "—");
-      setText("airportName", "—");
-      setText("nearestWeather", "—");
-      hideMap();
-      const status = document.getElementById("status");
-      if(status){
-        status.textContent = "Ready";
-        status.style.color = "";
-      }
-    }
+  function clearPartial(){
+    setText("sector", "—");
+    setText("area", "—");
+    setText("approach", "—");
+    setText("appVscs", "—");
+    setHtml("appContact", "—");
+    setText("appHours", "—");
+    setText("airportName", "—");
+    setText("nearestWeather", "—");
+    hideMap();
+    setStatus("Ready", false);
   }
 
-  function showAdjacent(info){
+  function showAdjacentFor(inputIdent, adjacent){
+    const currentInput = normalizeIdent(document.getElementById("airportInput")?.value || "");
+
+    // If the user has already typed something else, do not apply old results.
+    if(currentInput && currentInput !== inputIdent){
+      return;
+    }
+
     const db = window.ZFW_ADJACENT_ARTCC_AIRPORTS || {};
     const centers = db.centers || {};
-    const rec = info.record || {};
+    const rec = adjacent.record || {};
     const centerId = normalizeIdent(rec.center);
-    const center = centers[centerId] || { name: centerId + " ARTCC", fdcd: rec.fdcd || "" };
+    const center = centers[centerId] || {};
     const fdcd = rec.fdcd || center.fdcd || "";
-
-    const displayIdent = normalizeIdent(info.ident).startsWith("K")
-      ? normalizeIdent(info.ident).slice(1)
-      : normalizeIdent(info.ident);
-
-    const statusLine = `${displayIdent}: ${centerId} FD/CD ${fdcd}`;
-
-    lastAdjacentIdent = displayIdent;
-    lastAdjacentText = statusLine;
+    const displayIdent = adjacent.ident;
 
     clearHighlights();
 
@@ -131,11 +108,11 @@
     setText("area", centerId);
     setText("approach", "Outside ZFW ARTCC");
     setText("appVscs", "—");
-    setHtml("appContact", `${rec.name || displayIdent} is in ${center.name || centerId} airspace. ${centerId} Flight Data Clearance Delivery: ${fdcd}`);
+    setHtml("appContact", `${rec.name || displayIdent} is in ${center.name || centerId + " ARTCC"} airspace. ${centerId} Flight Data Clearance Delivery: ${fdcd}`);
     setText("appHours", "0000-2359");
     setText("airportName", rec.name || displayIdent);
 
-    // Adjacent ARTCC/wrong-airspace lookup does not need weather.
+    // Wrong-airspace/adjacent-center lookup does not require PIREP WX.
     setText("nearestWeather", "—");
 
     const contactCard = document.getElementById("appContact")?.closest(".card");
@@ -143,13 +120,8 @@
       contactCard.classList.add("nearest-wx-highlight");
     }
 
-    forceStatus(statusLine);
+    setStatus(`${displayIdent}: ${centerId} FD/CD ${fdcd}`, true);
     hideMap();
-
-    const input = document.getElementById("airportInput");
-    if(input && normalizeIdent(input.value)){
-      setTimeout(() => { input.value = ""; }, 650);
-    }
   }
 
   function handleInput(){
@@ -162,20 +134,29 @@
       return;
     }
 
-    if(!isCompleteAirportIdent(ident)){
-      clearStalePartialEntry();
+    if(ident.length < 3){
+      clearPartial();
       return;
     }
 
-    // If it exists in ZFW, the primary app handles it.
+    if(!isCompleteAirportIdent(ident)){
+      return;
+    }
+
+    // ZFW records always take priority.
     if(getZfwRecord(ident)){
       return;
     }
 
     const adjacent = getAdjacentRecord(ident);
-    if(adjacent){
-      [0, 150, 500, 1000].forEach(t => setTimeout(() => showAdjacent(adjacent), t));
+    if(!adjacent){
+      return;
     }
+
+    // Delayed calls beat the primary app's "no match" output without creating a loop/stutter.
+    [0, 120, 350, 800].forEach(delay => {
+      setTimeout(() => showAdjacentFor(ident, adjacent), delay);
+    });
   }
 
   function boot(){
@@ -183,17 +164,6 @@
     if(input){
       ["input", "change", "keyup", "blur"].forEach(evt => input.addEventListener(evt, handleInput));
     }
-
-    setInterval(() => {
-      clearStalePartialEntry();
-
-      const status = document.getElementById("status");
-      if(lastAdjacentIdent && status && /NO MATCH|NOT FOUND/i.test(status.textContent || "")){
-        const adjacent = getAdjacentRecord(lastAdjacentIdent);
-        if(adjacent) showAdjacent(adjacent);
-        else if(lastAdjacentText) forceStatus(lastAdjacentText);
-      }
-    }, 250);
   }
 
   if(document.readyState === "loading"){

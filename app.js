@@ -10,23 +10,124 @@ zfwMapImage.src = ZFW_MAP_IMAGE_SRC;
 zfwMapImage.onload = () => drawMap();
 let clearTimer=null,currentMarker=null;
 const input=document.getElementById("airportInput"),statusEl=document.getElementById("status");
-const els={sector:document.getElementById("sector"),area:document.getElementById("area"),approach:document.getElementById("approach"),vscs:document.getElementById("vscs"),contact:document.getElementById("contact"),hours:document.getElementById("hours"),airportName:document.getElementById("airportName"),nearestWeather:document.getElementById("nearestWeather")};
-const cards={sector:document.getElementById("sectorCard"),area:document.getElementById("areaCard"),approach:document.getElementById("approachCard"),vscs:document.getElementById("vscsCard"),contact:document.getElementById("contactCard"),hours:document.getElementById("hoursCard"),airportName:document.getElementById("airportNameCard"),nearestWeather:document.getElementById("nearestWeatherCard")};
+const els={sector:document.getElementById("sector"),area:document.getElementById("area"),approach:document.getElementById("approach"),vscs:document.getElementById("vscs"),contact:document.getElementById("contact"),hours:document.getElementById("hours"),airportName:document.getElementById("airportName")};
+const cards={sector:document.getElementById("sectorCard"),area:document.getElementById("areaCard"),approach:document.getElementById("approachCard"),vscs:document.getElementById("vscsCard"),contact:document.getElementById("contactCard"),hours:document.getElementById("hoursCard"),airportName:document.getElementById("airportNameCard")};
 function normalizeSearch(v){const s=(v||"").trim().toUpperCase();return(s.length===3&&/^[A-Z]+$/.test(s))?"K"+s:s}
+function isCompleteLookupInput(v){const s=(v||"").trim().toUpperCase();return /^[A-Z0-9]{3}$/.test(s)||/^K[A-Z0-9]{3}$/.test(s)||/^[A-Z0-9]{5}$/.test(s)}
 function splitLines(items){return(!items||!items.length)?"":items.filter(Boolean).join("\n")}
 function parseHours(hours){const h=(hours||"").trim().toUpperCase();const times=[...h.matchAll(/(\d{4})-(\d{4})/g)].map(m=>[m[1],m[2]]);if(!times.length)return[];let d="ALL";if(h.includes("M-F"))d="M-F";else if(h.includes("SU")&&h.indexOf("SU")<h.indexOf(times[0][0]))d="SU";const w=[[d,times[0][0],times[0][1]]];if(times.length>1)w.push([h.includes("SU")?"SU":"ALL",times[1][0],times[1][1]]);return w}
 function militaryToMinutes(t){const h=Number(t.slice(0,2)),m=Number(t.slice(2));return h===24?1440:h*60+m}
 function dayAllowed(d,n){const x=n.getDay();if(d==="ALL")return true;if(d==="M-F")return x>=1&&x<=5;if(d==="SU")return x===0;return true}
 function isOpen(hours){const w=parseHours(hours);if(!w.length)return false;const n=new Date(),cur=n.getHours()*60+n.getMinutes();return w.some(([d,s,e])=>{if(!dayAllowed(d,n))return false;const sm=militaryToMinutes(s),em=militaryToMinutes(e);return em>=sm?(cur>=sm&&cur<=em):(cur>=sm||cur<=em)})}
-function setText(id,v){if(els[id]) els[id].textContent=v||"—"}
+function setText(id,v){els[id].textContent=v||"—"}
 function clearClasses(){Object.values(cards).forEach(c=>{c.classList.remove("primary");c.style.background="";c.style.borderColor="";c.style.boxShadow=""});Object.values(els).forEach(e=>{e.classList.remove("red-text","green-text","amber-text","cyan-text");e.style.color=""})}
 function updateZuluClock(){document.getElementById("zuluClock").textContent=new Date().toISOString().slice(11,19)+"Z"}
 function scheduleClear(){if(clearTimer)clearTimeout(clearTimer);clearTimer=setTimeout(()=>{input.value="";input.focus()},1000)}
+function updateResults(){
+  const raw = input.value;
+  const upper = raw.toUpperCase();
 
-function rawAirportAliases(v){const s=(v||"").trim().toUpperCase();if(!s)return[];if(s.length===4&&s.startsWith("K"))return[s,s.slice(1)];if(s.length===3)return[s,"K"+s];return[s]}
-function getAdjacentRecord(raw){const db=window.ZFW_ADJACENT_ARTCC_AIRPORTS||{};const airports=db.airports||{};for(const a of rawAirportAliases(raw)){if(airports[a])return{ident:a.startsWith("K")?a.slice(1):a,record:airports[a]}}return null}
-function showAdjacentResult(raw,adj){clearClasses();const rec=adj.record||{},centers=(window.ZFW_ADJACENT_ARTCC_AIRPORTS||{}).centers||{};const centerId=(rec.center||"").toUpperCase();const center=centers[centerId]||{};const fdcd=rec.fdcd||center.fdcd||"";setText("sector","Outside ZFW");setText("area",centerId);setText("approach","Outside ZFW ARTCC");setText("vscs","");setText("contact",`${rec.name||adj.ident} is in ${center.name||centerId+" ARTCC"} airspace. ${centerId} Flight Data Clearance Delivery: ${fdcd}`);setText("hours","0000-2359");setText("airportName",rec.name||adj.ident);setText("nearestWeather","");els.airportName.classList.add("cyan-text");els.sector.classList.add("amber-text");if(cards.contact)cards.contact.classList.add("primary");statusEl.textContent=`${adj.ident}: ${centerId} FD/CD ${fdcd}`;statusEl.style.color="var(--amber)";currentMarker=null;drawMap();scheduleClear()}
-function updateResults(){const raw=input.value,upper=raw.toUpperCase();if(raw!==upper)input.value=upper;const trimmed=upper.trim();if(!trimmed)return;if(trimmed.length<3){statusEl.textContent="Ready";statusEl.style.color="";return}const query=normalizeSearch(trimmed);const rec=records[query];if(!rec){const adj=getAdjacentRecord(trimmed);if(adj){showAdjacentResult(trimmed,adj);return}statusEl.textContent=`NO MATCH: ${trimmed}`;statusEl.style.color="var(--red)";return}clearClasses();const sectors=rec.sectors||[],areas=rec.areas||[],apps=rec.apps||[],vscs=rec.vscs||[],contacts=rec.contacts||[],hours=rec.hours||[];const appIsOpen=apps.length>0&&isOpen(hours[0]||"");let sectorValue=splitLines(sectors);if(appIsOpen&&sectorValue)sectorValue+="\nAPP OPEN";let vscsValue="",contactValue="";if(apps.length){vscsValue=appIsOpen?splitLines(vscs):"CLOSED";contactValue=appIsOpen?splitLines(contacts):"CLOSED"}setText("sector",sectorValue);setText("area",splitLines(areas));setText("approach",splitLines(apps));setText("vscs",vscsValue);setText("contact",contactValue);setText("hours",splitLines(hours));setText("airportName",rec.airport_name||"Name not found");els.airportName.classList.add("cyan-text");if(areas.length){const a=areas[0],color=areaColors[a]||"#17212b";cards.area.style.background=color;cards.area.style.borderColor=color;els.area.style.color=a==="BYP"?"#111111":"#ffffff"}if(apps.length&&appIsOpen){cards.vscs.classList.add("primary");cards.contact.classList.add("primary");els.vscs.classList.add("green-text");els.contact.classList.add("green-text");if(sectorValue.includes("APP OPEN"))els.sector.classList.add("red-text");statusEl.textContent=`APP OPEN | ${query}`;statusEl.style.color="var(--green)"}else{if(sectors.length)cards.sector.classList.add("primary");els.sector.classList.add("amber-text");if(vscsValue==="CLOSED")els.vscs.classList.add("red-text");if(contactValue==="CLOSED")els.contact.classList.add("red-text");if(apps.length){statusEl.textContent=`APP CLOSED | ${query}`;statusEl.style.color="var(--red)"}else{statusEl.textContent=`SECTOR ONLY | ${query}`;statusEl.style.color="var(--amber)"}}currentMarker={ident:query,lat:rec.lat,lon:rec.lon};drawMap();scheduleClear()}
+  if(raw !== upper) input.value = upper;
+
+  if(!upper){
+    return;
+  }
+
+  // Do not process partial airport entries. This prevents ML from firing before MLU.
+  if(!isCompleteLookupInput(upper)){
+    statusEl.textContent = "Ready";
+    statusEl.style.color = "";
+    return;
+  }
+
+  const query = normalizeSearch(upper);
+  const rec = records[query];
+
+  // Adjacent/non-ZFW exact lookup runs only when there is no ZFW airport record.
+  if(!rec){
+    if(window.applyAdjacentAirportLookup && window.applyAdjacentAirportLookup(upper)){
+      scheduleClear();
+      return;
+    }
+
+    statusEl.textContent = `NO MATCH: ${upper}`;
+    statusEl.style.color = "var(--red)";
+    return;
+  }
+
+  if(window.clearAdjacentAirportDisplayState){
+    window.clearAdjacentAirportDisplayState();
+  }
+
+  clearClasses();
+
+  const sectors = rec.sectors || [];
+  const areas = rec.areas || [];
+  const apps = rec.apps || [];
+  const vscs = rec.vscs || [];
+  const contacts = rec.contacts || [];
+  const hours = rec.hours || [];
+  const appIsOpen = apps.length > 0 && isOpen(hours[0] || "");
+
+  let sectorValue = splitLines(sectors);
+  if(appIsOpen && sectorValue) sectorValue += "\nAPP OPEN";
+
+  let vscsValue = "";
+  let contactValue = "";
+
+  if(apps.length){
+    vscsValue = appIsOpen ? splitLines(vscs) : "CLOSED";
+    contactValue = appIsOpen ? splitLines(contacts) : "CLOSED";
+  }
+
+  setText("sector", sectorValue);
+  setText("area", splitLines(areas));
+  setText("approach", splitLines(apps));
+  setText("vscs", vscsValue);
+  setText("contact", contactValue);
+  setText("hours", splitLines(hours));
+  setText("airportName", rec.airport_name || "Name not found");
+
+  els.airportName.classList.add("cyan-text");
+
+  if(areas.length){
+    const a = areas[0];
+    const color = areaColors[a] || "#17212b";
+    cards.area.style.background = color;
+    cards.area.style.borderColor = color;
+    els.area.style.color = a === "BYP" ? "#111111" : "#ffffff";
+  }
+
+  if(apps.length && appIsOpen){
+    cards.vscs.classList.add("primary");
+    cards.contact.classList.add("primary");
+    els.vscs.classList.add("green-text");
+    els.contact.classList.add("green-text");
+
+    if(sectorValue.includes("APP OPEN")) els.sector.classList.add("red-text");
+
+    statusEl.textContent = `APP OPEN | ${query}`;
+    statusEl.style.color = "var(--green)";
+  } else {
+    if(sectors.length) cards.sector.classList.add("primary");
+    els.sector.classList.add("amber-text");
+
+    if(vscsValue === "CLOSED") els.vscs.classList.add("red-text");
+    if(contactValue === "CLOSED") els.contact.classList.add("red-text");
+
+    if(apps.length){
+      statusEl.textContent = `APP CLOSED | ${query}`;
+      statusEl.style.color = "var(--red)";
+    } else {
+      statusEl.textContent = `SECTOR ONLY | ${query}`;
+      statusEl.style.color = "var(--amber)";
+    }
+  }
+
+  currentMarker = { ident: query, lat: rec.lat, lon: rec.lon };
+  drawMap();
+  scheduleClear();
+}
 function pointInPolygon(point, polygon) {
   const [x, y] = point;
   let inside = false;

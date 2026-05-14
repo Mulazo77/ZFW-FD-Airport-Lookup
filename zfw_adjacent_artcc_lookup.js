@@ -90,14 +90,39 @@
     return document.querySelector(".map-card") || document.getElementById("zfwMap")?.closest(".card");
   }
 
-  function hideMap(){
+  function showMapContainer(){
     const card = mapCard();
-    if(card) card.style.display = "none";
+    if(card){
+      card.style.display = "";
+    }
   }
 
-  function showMap(){
-    const card = mapCard();
-    if(card) card.style.display = "";
+  function blankMapForAdjacent(){
+    showMapContainer();
+
+    const map = document.getElementById("zfwMap");
+    if(!map) return;
+
+    // Do not hide the map card. Just suppress plotted airport/navaid markers
+    // while an adjacent ARTCC result is active.
+    map.querySelectorAll(".airport-marker, .navaid-marker, .waypoint-marker, .map-marker, circle, text").forEach(el => {
+      const text = normalizeIdent(el.textContent);
+      if(text && text.includes("NO AIRPORT SELECTED")) return;
+      el.style.display = "none";
+    });
+  }
+
+  function restoreMapForZfw(){
+    activeAdjacentIdent = "";
+
+    const map = document.getElementById("zfwMap");
+    if(map){
+      map.querySelectorAll(".airport-marker, .navaid-marker, .waypoint-marker, .map-marker, circle, text").forEach(el => {
+        el.style.display = "";
+      });
+    }
+
+    showMapContainer();
   }
 
   function clearPartialDisplay(){
@@ -112,7 +137,7 @@
     setText("airportName", "—");
     setText("nearestWeather", "—");
 
-    showMap();
+    restoreMapForZfw();
     setStatus("Ready", false);
   }
 
@@ -127,6 +152,11 @@
         input.value = "";
       }
     }, 650);
+  }
+
+  function suppressAdjacentWx(){
+    if(!activeAdjacentIdent) return;
+    setText("nearestWeather", "—");
   }
 
   function showAdjacent(typedIdent, adjacent){
@@ -158,6 +188,8 @@
     setHtml("appContact", `${rec.name || displayIdent} is in ${center.name || centerId + " ARTCC"} airspace. ${centerId} Flight Data Clearance Delivery: ${fdcd}`);
     setText("appHours", "0000-2359");
     setText("airportName", rec.name || displayIdent);
+
+    // No airports/navaids outside ZFW display nearest WX.
     setText("nearestWeather", "—");
 
     const contactCard = document.getElementById("appContact")?.closest(".card");
@@ -166,7 +198,7 @@
     }
 
     setStatus(statusLine, true);
-    hideMap();
+    blankMapForAdjacent();
     clearInputSoon(displayIdent);
   }
 
@@ -190,8 +222,7 @@
       return;
     }
 
-    // Adjacent exact matches take priority. This fixes ICT/ABQ/MEM even if some
-    // other script has partial/stale data or a same identifier elsewhere.
+    // Adjacent exact matches take priority.
     const adjacent = getAdjacentRecord(ident);
     if(adjacent){
       [0, 100, 250, 500].forEach(delay => {
@@ -200,10 +231,9 @@
       return;
     }
 
-    // No adjacent match: let the normal ZFW app handle it.
+    // No adjacent match: let normal ZFW app handle it.
     if(getZfwRecord(ident)){
-      activeAdjacentIdent = "";
-      showMap();
+      restoreMapForZfw();
     }
   }
 
@@ -230,21 +260,16 @@
         }
 
         if(getZfwRecord(typed)){
-          activeAdjacentIdent = "";
-          showMap();
+          restoreMapForZfw();
           return;
         }
       }
 
       if(activeAdjacentIdent){
-        hideMap();
-
-        const wx = document.getElementById("nearestWeather");
-        if(wx && normalizeIdent(wx.textContent) !== "—"){
-          setText("nearestWeather", "—");
-        }
+        suppressAdjacentWx();
+        blankMapForAdjacent();
       }
-    }, 250);
+    }, 150);
   }
 
   if(document.readyState === "loading"){

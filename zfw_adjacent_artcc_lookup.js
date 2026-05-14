@@ -27,6 +27,8 @@
         line-height: 1 !important;
         height: 40px !important;
         min-height: 40px !important;
+        min-width: 230px !important;
+        width: 230px !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -34,6 +36,7 @@
         box-shadow: none !important;
         font-family: inherit !important;
         white-space: nowrap !important;
+        box-sizing: border-box !important;
       }
 
       #addNonZfwAirportButton:hover {

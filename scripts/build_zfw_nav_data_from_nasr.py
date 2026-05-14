@@ -402,6 +402,36 @@ def assign_nearest_wx(records: Dict[str, Dict], stations: List[Dict]) -> None:
         record["nearest_wx"] = best["id"]
 
 
+
+def load_supplemental_waypoints(path: str = "zfw_supplemental_waypoints.js") -> Dict[str, Dict]:
+    p = Path(path)
+    if not p.exists():
+        return {}
+    text = p.read_text(encoding="utf-8")
+    m = re.search(r"window\.ZFW_SUPPLEMENTAL_WAYPOINTS\s*=\s*(\{.*\})\s*;?\s*$", text, re.S)
+    if not m:
+        return {}
+    data = json.loads(m.group(1))
+    clean = {}
+    for ident, rec in data.items():
+        ident = re.sub(r"[^A-Z0-9]", "", ident.upper())
+        if ident.startswith("K") and len(ident) == 4:
+            ident = ident[1:]
+        if not ident:
+            continue
+        rec = dict(rec)
+        rec.setdefault("sectors", [])
+        rec.setdefault("areas", [])
+        rec.setdefault("apps", [])
+        rec.setdefault("vscs", [])
+        rec.setdefault("contacts", [])
+        rec.setdefault("hours", [])
+        rec.setdefault("airport_name", f"{ident} FIX")
+        rec.setdefault("record_type", "WAYPOINT")
+        clean[ident] = rec
+    return clean
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cycle-page", default=os.environ.get("NASR_CYCLE_PAGE", "auto"))
@@ -470,6 +500,13 @@ def main() -> int:
 
     stations = load_weather_stations(wx_rows)
     assign_nearest_wx(records, stations)
+
+    supplemental_records = load_supplemental_waypoints()
+    for ident, rec in supplemental_records.items():
+        if ident in records:
+            records[ident].update({k: v for k, v in rec.items() if v not in (None, '', [], {})})
+        else:
+            records[ident] = rec
 
     missing_nearest_wx = sorted([
         ident for ident, record in records.items()

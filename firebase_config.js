@@ -1,8 +1,388 @@
-window.ZFW_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyABiZoz_sxWbcJHgA3ZiG-XZporqdg-5x0",
-  authDomain: "zfw-fdcd.firebaseapp.com",
-  projectId: "zfw-fdcd",
-  storageBucket: "zfw-fdcd.firebasestorage.app",
-  messagingSenderId: "620552725591",
-  appId: "1:620552725591:web:0b33f46b7532252c60ef12"
-};
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZFW FDU Airport Locator</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    #loginPage {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: linear-gradient(135deg, #0f172a 0%, #156082 100%);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      background: #ffffff;
+      border-radius: 18px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+      padding: 32px;
+    }
+
+    .login-card h1 {
+      margin: 0 0 8px;
+      font-size: 1.75rem;
+      line-height: 1.2;
+      color: #0f172a;
+      text-align: center;
+    }
+
+    .login-card p {
+      margin: 0 0 24px;
+      color: #64748b;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+
+    .login-card label {
+      display: block;
+      font-weight: 700;
+      margin: 14px 0 6px;
+      color: #0f172a;
+    }
+
+    .login-card input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    .login-card input:focus {
+      outline: 3px solid rgba(21, 96, 130, 0.22);
+      border-color: #156082;
+    }
+
+    .login-card button {
+      width: 100%;
+      margin-top: 22px;
+      padding: 12px 14px;
+      border: 0;
+      border-radius: 10px;
+      background: #156082;
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .login-card button:hover {
+      filter: brightness(0.94);
+    }
+
+    #loginError {
+      display: none;
+      margin-top: 14px;
+      color: #b91c1c;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    #appContent {
+      display: none;
+    }
+
+    .logout-button {
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 7px 10px;
+      cursor: pointer;
+    }
+
+    .logout-button:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+  </style>
+
+  <style>
+    /* Compact operational layout so the map remains visible with less scrolling. */
+    .app {
+      padding-top: 12px !important;
+      padding-bottom: 12px !important;
+    }
+
+    .search-row {
+      gap: 8px !important;
+      margin-bottom: 10px !important;
+    }
+
+    .search-row label {
+      font-size: 0.82rem !important;
+    }
+
+    #airportInput {
+      min-height: 34px !important;
+      padding: 6px 10px !important;
+      font-size: 1rem !important;
+    }
+
+    .grid {
+      gap: 8px !important;
+      align-items: stretch !important;
+    }
+
+    .card {
+      padding: 8px 10px !important;
+      min-height: 58px !important;
+    }
+
+    .card-title {
+      font-size: 0.72rem !important;
+      line-height: 1.1 !important;
+      margin-bottom: 4px !important;
+    }
+
+    .card-value {
+      font-size: 1rem !important;
+      line-height: 1.15 !important;
+    }
+
+    .airport-name-card,
+    .nearest-weather-card {
+      min-height: 54px !important;
+    }
+
+    .map-card {
+      min-height: 280px !important;
+    }
+
+    #zfwMap {
+      max-height: 260px !important;
+    }
+
+    .correction-tools {
+      margin-top: 6px !important;
+    }
+
+    .correction-tools button {
+      padding: 7px 10px !important;
+      font-size: 0.85rem !important;
+    }
+  </style>
+
+
+  <style>
+    /* Readability/layout adjustment: slightly larger output boxes while keeping the map visible. */
+    .card {
+      padding: 10px 12px !important;
+      min-height: 66px !important;
+    }
+    .card-title {
+      font-size: 0.78rem !important;
+      margin-bottom: 5px !important;
+    }
+    .card-value {
+      font-size: 1.08rem !important;
+      line-height: 1.2 !important;
+    }
+    .airport-name-card,
+    .nearest-weather-card {
+      min-height: 62px !important;
+    }
+    .grid {
+      gap: 9px !important;
+    }
+    .map-card {
+      min-height: 285px !important;
+    }
+    #zfwMap {
+      max-height: 265px !important;
+    }
+  </style>
+
+</head>
+<body>
+  <section id="loginPage">
+    <form class="login-card" id="loginForm" autocomplete="off">
+      <h1>ZFW FDU Airport Locator</h1>
+      <p>Authorized access only</p>
+
+      <label for="username">Username</label>
+      <input id="username" name="username" type="text" autocomplete="username" required />
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required />
+
+      <button type="submit">Login</button>
+      <div id="loginError">Invalid username or password.</div>
+    </form>
+  </section>
+
+  <div id="appContent">
+    <header class="topbar">
+      <div class="title">ZFW FDU OPERATIONAL AIRPORT LOOKUP</div>
+      <div class="topbar-actions">
+        <div id="zuluClock" class="zulu-clock">--:--:--Z</div>
+        <button type="button" id="logoutButton" class="logout-button">Logout</button>
+      </div>
+    </header>
+
+    <main class="app">
+      <section class="search-row">
+        <label for="airportInput">AIRPORT IDENTIFIER</label>
+        <input id="airportInput" type="text" autocomplete="off" autofocus maxlength="5" />
+        <div id="status" class="status">Ready</div>
+      </section>
+
+      <section class="grid">
+        <div id="sectorCard" class="card"><div class="card-title">SECTOR</div><div id="sector" class="card-value">—</div></div>
+        <div id="areaCard" class="card"><div class="card-title">AREA</div><div id="area" class="card-value">—</div></div>
+        <div id="approachCard" class="card"><div class="card-title">APPROACH</div><div id="approach" class="card-value">—</div></div>
+        <div id="vscsCard" class="card"><div class="card-title">APP VSCS</div><div id="vscs" class="card-value">—</div></div>
+        <div id="contactCard" class="card"><div class="card-title">APP CONTACT</div><div id="contact" class="card-value">—</div></div>
+        <div id="hoursCard" class="card"><div class="card-title">APP HOURS</div><div id="hours" class="card-value">—</div></div>
+        <div id="airportNameCard" class="card airport-name-card"><div class="card-title">AIRPORT/NAVAID NAME</div><div id="airportName" class="card-value">—</div></div>
+        <div id="nearestWeatherCard" class="card nearest-weather-card"><div class="card-title">NEAREST WX STATION</div><div id="nearestWeather" class="card-value">—</div></div>
+        <div id="mapCard" class="card map-card"><div class="card-title">ZFW ARTCC AIRSPACE</div><canvas id="zfwMap"></canvas></div>
+      </section>
+    </main>
+  </div>
+
+
+  <script>
+    const ZFW_APP_SCRIPTS = [
+      "airport_data.js",
+      "zfw_nav_data.js",
+      "zfw_weather_stations.js",
+      "firebase_config.js",
+      "zfw_firestore_shared.js",
+      "zfw_weather_nav_lookup.js",
+      "airport_corrections.js",
+      "app.js"
+    ];
+
+    let zfwScriptsLoaded = false;
+
+    function loadScriptSequentially(src) {
+      return new Promise(function (resolve, reject) {
+        const existing = document.querySelector('script[data-zfw-dynamic="' + src + '"]');
+        if (existing) {
+          resolve();
+          return;
+        }
+
+        const script = document.createElement("script");
+        script.src = src + "?v=" + Date.now();
+        script.dataset.zfwDynamic = src;
+        script.onload = resolve;
+        script.onerror = function () {
+          reject(new Error("Failed to load " + src));
+        };
+        document.body.appendChild(script);
+      });
+    }
+
+    async function loadZfwAppScriptsAfterLogin() {
+      if (zfwScriptsLoaded) {
+        if (window.ZFW_START_FIREBASE) {
+          window.ZFW_START_FIREBASE();
+        }
+        return;
+      }
+
+      zfwScriptsLoaded = true;
+
+      const status = document.getElementById("status");
+      for (const src of ZFW_APP_SCRIPTS) {
+        if (status) status.textContent = "Loading " + src;
+        console.log("Loading", src);
+        await loadScriptSequentially(src);
+      }
+      if (status) status.textContent = "Ready";
+
+      if (typeof loadZfwAppScriptsAfterLogin === "function") {
+        loadZfwAppScriptsAfterLogin().catch(function (error) {
+          console.error(error);
+          alert("The app scripts failed to load. Check GitHub Pages file names and browser console.");
+        });
+      }
+
+      const airportInput = document.getElementById("airportInput");
+      if (airportInput) {
+        airportInput.focus();
+        airportInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
+  </script>
+
+  <script>
+    const VALID_USERNAME = "ZFW";
+    const VALID_PASSWORD = "ZFWCD";
+    const SESSION_KEY = "zfwAirportLocatorLoggedIn";
+
+    const loginPage = document.getElementById("loginPage");
+    const appContent = document.getElementById("appContent");
+    const loginForm = document.getElementById("loginForm");
+    const loginError = document.getElementById("loginError");
+    const logoutButton = document.getElementById("logoutButton");
+
+    function showApp() {
+      loginPage.style.display = "none";
+      appContent.style.display = "block";
+      const airportInput = document.getElementById("airportInput");
+      if (airportInput) {
+        airportInput.focus();
+      }
+
+      if (typeof loadZfwAppScriptsAfterLogin === "function") {
+        loadZfwAppScriptsAfterLogin().catch(function (error) {
+          console.error(error);
+          alert("The app scripts failed to load. Check GitHub Pages file names and browser console.");
+        });
+      }
+    }
+
+    function showLogin() {
+      loginPage.style.display = "flex";
+      appContent.style.display = "none";
+    }
+
+    if (sessionStorage.getItem(SESSION_KEY) === "true") {
+      showApp();
+    } else {
+      showLogin();
+    }
+
+    loginForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (username === VALID_USERNAME && password === VALID_PASSWORD) {
+        sessionStorage.setItem(SESSION_KEY, "true");
+        loginError.style.display = "none";
+        showApp();
+      } else {
+        sessionStorage.removeItem(SESSION_KEY);
+        loginError.style.display = "block";
+      }
+    });
+
+    logoutButton.addEventListener("click", function () {
+      sessionStorage.removeItem(SESSION_KEY);
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+      showLogin();
+    });
+  </script>
+</body>
+</html>

@@ -635,7 +635,7 @@ def main() -> int:
         encoding="utf-8",
     )
 
-        adjacent_airports = build_adjacent_artcc_airports(apt_rows)
+    adjacent_airports = build_adjacent_artcc_airports(apt_rows)
     Path("zfw_adjacent_artcc_airports.js").write_text(
         "// Generated from FAA NASR public APT CSV data.\n"
         f"// Cycle page: {cycle_page}\n"

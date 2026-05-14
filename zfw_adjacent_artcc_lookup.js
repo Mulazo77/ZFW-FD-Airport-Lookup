@@ -1,41 +1,83 @@
 (function(){
   "use strict";
 
-  let activeAdjacentIdent = "";
-  let inputClearTimer = null;
+  const LOCAL_STORAGE_KEY = "zfwNonZfwAirportCorrections";
+  const CENTER_INFO = {
+    ZAB: { name: "Albuquerque ARTCC", fdcd: "505-856-4561" },
+    ZKC: { name: "Kansas City ARTCC", fdcd: "913-254-8508" },
+    ZHU: { name: "Houston ARTCC", fdcd: "281-230-5622" },
+    ZME: { name: "Memphis ARTCC", fdcd: "901-368-8453/8449" }
+  };
 
   function normalizeIdent(value){
-    return String(value || "").trim().toUpperCase();
+    return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
   }
 
-  function isCompleteAirportIdent(ident){
-    ident = normalizeIdent(ident);
-    return /^[A-Z0-9]{3}$/.test(ident) || /^K[A-Z0-9]{3}$/.test(ident);
-  }
-
-  function aliasesFor(ident){
-    ident = normalizeIdent(ident);
-    if(!isCompleteAirportIdent(ident)) return [];
+  function canonicalAirportIdent(value){
+    let ident = normalizeIdent(value);
 
     if(ident.length === 4 && ident.startsWith("K")){
-      return [ident, ident.slice(1)];
+      ident = ident.slice(1);
     }
 
-    if(ident.length === 3){
-      return [ident, "K" + ident];
-    }
-
-    return [ident];
+    return ident;
   }
 
-  function getAdjacentRecord(ident){
-    const airports = window.ZFW_ADJACENT_ARTCC_AIRPORTS?.airports || {};
+  function isValidAirportIdent(value){
+    const ident = canonicalAirportIdent(value);
+    return /^[A-Z0-9]{3}$/.test(ident);
+  }
 
-    for(const alias of aliasesFor(ident)){
-      if(airports[alias]){
+  function aliasesFor(value){
+    const ident = canonicalAirportIdent(value);
+    if(!/^[A-Z0-9]{3}$/.test(ident)) return [];
+    return [ident, "K" + ident];
+  }
+
+  function ensureStore(){
+    if(!window.ZFW_ADJACENT_ARTCC_AIRPORTS){
+      window.ZFW_ADJACENT_ARTCC_AIRPORTS = { centers: {}, airports: {} };
+    }
+
+    if(!window.ZFW_ADJACENT_ARTCC_AIRPORTS.centers){
+      window.ZFW_ADJACENT_ARTCC_AIRPORTS.centers = {};
+    }
+
+    if(!window.ZFW_ADJACENT_ARTCC_AIRPORTS.airports){
+      window.ZFW_ADJACENT_ARTCC_AIRPORTS.airports = {};
+    }
+
+    Object.assign(window.ZFW_ADJACENT_ARTCC_AIRPORTS.centers, CENTER_INFO);
+
+    return window.ZFW_ADJACENT_ARTCC_AIRPORTS;
+  }
+
+  function addRecordToStore(identifier, centerCode, airportName){
+    const store = ensureStore();
+    const ident = canonicalAirportIdent(identifier);
+    const center = CENTER_INFO[centerCode];
+
+    if(!ident || !center) return null;
+
+    const record = {
+      center: centerCode,
+      name: airportName || ident,
+      fdcd: center.fdcd
+    };
+
+    store.airports[ident] = record;
+    store.airports["K" + ident] = record;
+
+    return { ident, record };
+  }
+
+  function getAdjacentRecord(identifier){
+    const store = ensureStore();
+    for(const alias of aliasesFor(identifier)){
+      if(store.airports[alias]){
         return {
           ident: alias.startsWith("K") ? alias.slice(1) : alias,
-          record: airports[alias]
+          record: store.airports[alias]
         };
       }
     }
@@ -43,14 +85,44 @@
     return null;
   }
 
-  function getZfwRecord(ident){
-    const records = window.AIRPORT_DATA?.records || {};
+  function loadLocalRecords(){
+    try{
+      return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "{}");
+    }catch(error){
+      console.warn("Could not read local non-ZFW airport records.", error);
+      return {};
+    }
+  }
 
-    for(const alias of aliasesFor(ident)){
-      if(records[alias]) return records[alias];
+  function saveLocalRecord(ident, record){
+    const all = loadLocalRecords();
+    all[ident] = record;
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(all));
+  }
+
+  function applyLocalRecords(){
+    const all = loadLocalRecords();
+    Object.keys(all).forEach(function(ident){
+      const record = all[ident];
+      if(record && record.center){
+        addRecordToStore(ident, record.center, record.name || ident);
+      }
+    });
+  }
+
+  async function saveSharedRecord(ident, record){
+    saveLocalRecord(ident, record);
+
+    if(window.ZFW_SAVE_SHARED_RECORD){
+      return window.ZFW_SAVE_SHARED_RECORD("non_zfw_airports", ident, {
+        identifier: ident,
+        center: record.center,
+        name: record.name || ident,
+        fdcd: record.fdcd || CENTER_INFO[record.center]?.fdcd || ""
+      });
     }
 
-    return null;
+    return false;
   }
 
   function setText(id, value){
@@ -69,212 +141,259 @@
     }
   }
 
-  function setStatus(text, warning){
-    const status = document.getElementById("status");
-    if(status){
-      status.textContent = text;
-      status.classList.remove("error", "not-found");
-      status.style.color = warning ? "#ffd166" : "";
-    }
-  }
-
   function clearHighlights(){
-    document.querySelectorAll(".card").forEach(card => {
-      card.classList.remove("nearest-wx-highlight", "highlight", "active", "warning");
+    document.querySelectorAll(".card").forEach(function(card){
+      card.classList.remove("nearest-wx-highlight", "highlight", "active", "warning", "primary");
       card.style.borderColor = "";
       card.style.boxShadow = "";
     });
   }
 
-  function mapCard(){
-    return document.querySelector(".map-card") || document.getElementById("zfwMap")?.closest(".card");
-  }
+  function clearMapForAdjacent(){
+    window.currentMarker = null;
 
-  function showMapContainer(){
-    const card = mapCard();
-    if(card){
-      card.style.display = "";
-    }
-  }
-
-  function blankMapForAdjacent(){
-    showMapContainer();
-
-    const map = document.getElementById("zfwMap");
-    if(!map) return;
-
-    // Do not hide the map card. Just suppress plotted airport/navaid markers
-    // while an adjacent ARTCC result is active.
-    map.querySelectorAll(".airport-marker, .navaid-marker, .waypoint-marker, .map-marker, circle, text").forEach(el => {
-      const text = normalizeIdent(el.textContent);
-      if(text && text.includes("NO AIRPORT SELECTED")) return;
-      el.style.display = "none";
-    });
-  }
-
-  function restoreMapForZfw(){
-    activeAdjacentIdent = "";
-
-    const map = document.getElementById("zfwMap");
-    if(map){
-      map.querySelectorAll(".airport-marker, .navaid-marker, .waypoint-marker, .map-marker, circle, text").forEach(el => {
-        el.style.display = "";
-      });
-    }
-
-    showMapContainer();
-  }
-
-  function clearPartialDisplay(){
-    activeAdjacentIdent = "";
-
-    setText("sector", "—");
-    setText("area", "—");
-    setText("approach", "—");
-    setText("appVscs", "—");
-    setHtml("appContact", "—");
-    setText("appHours", "—");
-    setText("airportName", "—");
-    setText("nearestWeather", "—");
-
-    restoreMapForZfw();
-    setStatus("Ready", false);
-  }
-
-  function clearInputSoon(expectedIdent){
-    const input = document.getElementById("airportInput");
-    if(!input) return;
-
-    clearTimeout(inputClearTimer);
-    inputClearTimer = setTimeout(() => {
-      const current = normalizeIdent(input.value);
-      if(current === expectedIdent || current === "K" + expectedIdent){
-        input.value = "";
+    if(typeof window.drawMap === "function"){
+      window.drawMap();
+    } else {
+      const map = document.getElementById("zfwMap");
+      if(map){
+        const ctx = map.getContext("2d");
+        if(ctx){
+          ctx.clearRect(0, 0, map.width, map.height);
+        }
       }
-    }, 650);
-  }
-
-  function suppressAdjacentWx(){
-    if(!activeAdjacentIdent) return;
-    setText("nearestWeather", "—");
-  }
-
-  function showAdjacent(typedIdent, adjacent){
-    const input = document.getElementById("airportInput");
-    const currentInput = normalizeIdent(input?.value || "");
-    const expected = normalizeIdent(typedIdent);
-
-    if(currentInput && currentInput !== expected && currentInput !== "K" + expected){
-      return;
     }
+  }
 
-    const db = window.ZFW_ADJACENT_ARTCC_AIRPORTS || {};
-    const centers = db.centers || {};
-    const rec = adjacent.record || {};
-    const centerId = normalizeIdent(rec.center);
-    const center = centers[centerId] || {};
-    const fdcd = rec.fdcd || center.fdcd || "";
-    const displayIdent = adjacent.ident;
-    const statusLine = `${displayIdent}: ${centerId} FD/CD ${fdcd}`;
+  function clearAdjacentAirportDisplayState(){
+    const mapCard = document.getElementById("mapCard");
+    if(mapCard){
+      mapCard.style.display = "";
+    }
+  }
 
-    activeAdjacentIdent = displayIdent;
+  function applyAdjacentAirportLookup(identifier){
+    const typed = normalizeIdent(identifier);
+    if(typed.length < 3) return false;
+
+    const result = getAdjacentRecord(typed);
+    if(!result) return false;
+
+    const record = result.record;
+    const centerCode = record.center || "";
+    const center = CENTER_INFO[centerCode] || ensureStore().centers[centerCode] || {};
+    const fdcd = record.fdcd || center.fdcd || "—";
 
     clearHighlights();
 
     setText("sector", "Outside ZFW");
-    setText("area", centerId);
+    setText("area", centerCode);
     setText("approach", "Outside ZFW ARTCC");
-    setText("appVscs", "—");
-    setHtml("appContact", `${rec.name || displayIdent} is in ${center.name || centerId + " ARTCC"} airspace. ${centerId} Flight Data Clearance Delivery: ${fdcd}`);
-    setText("appHours", "0000-2359");
-    setText("airportName", rec.name || displayIdent);
-
-    // No airports/navaids outside ZFW display nearest WX.
+    setText("vscs", "—");
+    setHtml("contact", `${centerCode} Flight Data Number: ${fdcd}`);
+    setText("hours", "—");
+    setText("airportName", record.name || result.ident);
     setText("nearestWeather", "—");
 
-    const contactCard = document.getElementById("appContact")?.closest(".card");
+    const contactCard = document.getElementById("contactCard");
     if(contactCard){
       contactCard.classList.add("nearest-wx-highlight");
+      contactCard.style.borderColor = "#ffd166";
+      contactCard.style.boxShadow = "0 0 0 2px rgba(255,209,102,.45),0 0 16px rgba(255,209,102,.35)";
     }
 
-    setStatus(statusLine, true);
-    blankMapForAdjacent();
-    clearInputSoon(displayIdent);
+    const status = document.getElementById("status");
+    if(status){
+      status.textContent = `${result.ident}: ${centerCode} FD/CD ${fdcd}`;
+      status.classList.remove("error", "not-found");
+      status.style.color = "#ffd166";
+    }
+
+    clearMapForAdjacent();
+
+    return true;
   }
 
-  function handleInput(){
+  function createModal(){
+    if(document.getElementById("nonZfwAirportModal")) return;
+
+    const modal = document.createElement("div");
+    modal.id = "nonZfwAirportModal";
+    modal.className = "correction-modal";
+    modal.setAttribute("aria-hidden", "true");
+    modal.innerHTML = `
+      <div class="correction-dialog">
+        <h2>Add Non-ZFW Airport</h2>
+        <p>Add an airport outside ZFW airspace so future lookups show the correct adjacent ARTCC Flight Data number.</p>
+
+        <form id="nonZfwAirportForm">
+          <div class="correction-grid">
+            <div class="correction-field">
+              <label for="nonZfwIdentifier">Airport Identifier</label>
+              <input id="nonZfwIdentifier" name="identifier" type="text" maxlength="4" required />
+              <div class="correction-help">Examples: IAB or KIAB</div>
+            </div>
+
+            <div class="correction-field">
+              <label for="nonZfwCenter">ARTCC</label>
+              <select id="nonZfwCenter" name="center" required>
+                <option value="">Select</option>
+                <option value="ZAB">ZAB</option>
+                <option value="ZKC">ZKC</option>
+                <option value="ZHU">ZHU</option>
+                <option value="ZME">ZME</option>
+              </select>
+            </div>
+
+            <div class="correction-field full">
+              <label for="nonZfwName">Airport Name</label>
+              <input id="nonZfwName" name="airportName" type="text" placeholder="Optional" />
+            </div>
+          </div>
+
+          <div id="nonZfwMessage" class="correction-message"></div>
+
+          <div class="correction-actions">
+            <button type="button" class="cancel" id="nonZfwCancel">Cancel</button>
+            <button type="submit">Save Non-ZFW Airport</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById("nonZfwCancel").addEventListener("click", closeModal);
+    modal.addEventListener("click", function(event){
+      if(event.target === modal) closeModal();
+    });
+
+    document.getElementById("nonZfwAirportForm").addEventListener("submit", async function(event){
+      event.preventDefault();
+
+      const identifier = canonicalAirportIdent(document.getElementById("nonZfwIdentifier").value);
+      const centerCode = document.getElementById("nonZfwCenter").value;
+      const airportName = String(document.getElementById("nonZfwName").value || identifier).trim().toUpperCase();
+      const message = document.getElementById("nonZfwMessage");
+
+      if(!isValidAirportIdent(identifier)){
+        message.textContent = "Enter a valid 3-character airport identifier, with or without K.";
+        message.className = "correction-message error";
+        return;
+      }
+
+      if(!CENTER_INFO[centerCode]){
+        message.textContent = "Select ZAB, ZKC, ZHU, or ZME.";
+        message.className = "correction-message error";
+        return;
+      }
+
+      const saved = addRecordToStore(identifier, centerCode, airportName);
+      if(!saved){
+        message.textContent = "Could not save record.";
+        message.className = "correction-message error";
+        return;
+      }
+
+      try{
+        const shared = await saveSharedRecord(saved.ident, saved.record);
+        message.textContent = shared ? "Non-ZFW airport saved for all PCs." : "Non-ZFW airport saved locally only. Firestore is not configured or did not accept this category.";
+        message.className = shared ? "correction-message" : "correction-message error";
+      }catch(error){
+        console.error(error);
+        message.textContent = "Saved locally, but Firestore save failed. Check Firestore rules for non_zfw_airports.";
+        message.className = "correction-message error";
+      }
+
+      const input = document.getElementById("airportInput");
+      if(input){
+        input.value = saved.ident;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+
+      setTimeout(closeModal, 900);
+    });
+  }
+
+  function openModal(){
+    createModal();
+    const modal = document.getElementById("nonZfwAirportModal");
     const input = document.getElementById("airportInput");
-    if(!input) return;
+    const ident = document.getElementById("nonZfwIdentifier");
 
-    const ident = normalizeIdent(input.value);
+    document.getElementById("nonZfwAirportForm").reset();
+    document.getElementById("nonZfwMessage").textContent = "";
+    document.getElementById("nonZfwMessage").className = "correction-message";
 
-    if(!ident){
-      return;
+    if(input && ident && normalizeIdent(input.value).length >= 3){
+      ident.value = canonicalAirportIdent(input.value);
     }
 
-    // No lookup should ever run on 1- or 2-character entries.
-    if(ident.length < 3){
-      clearPartialDisplay();
-      return;
+    modal.setAttribute("aria-hidden", "false");
+    setTimeout(function(){ ident && ident.focus(); }, 0);
+  }
+
+  function closeModal(){
+    const modal = document.getElementById("nonZfwAirportModal");
+    if(modal) modal.setAttribute("aria-hidden", "true");
+  }
+
+  function createButton(){
+    let button = document.getElementById("addNonZfwAirportButton");
+
+    if(!button){
+      button = document.createElement("button");
+      button.type = "button";
+      button.id = "addNonZfwAirportButton";
+      button.textContent = "Add Non-ZFW Airport";
+      button.className = "secondary";
+      button.addEventListener("click", openModal);
     }
 
-    if(!isCompleteAirportIdent(ident)){
-      return;
-    }
+    const bottomZone = document.getElementById("bottomCorrectionZone");
 
-    // Adjacent exact matches take priority.
-    const adjacent = getAdjacentRecord(ident);
-    if(adjacent){
-      [0, 100, 250, 500].forEach(delay => {
-        setTimeout(() => showAdjacent(ident, adjacent), delay);
-      });
-      return;
+    if(bottomZone){
+      // Append after the other two buttons so it stays right-most.
+      bottomZone.appendChild(button);
+    } else {
+      document.body.appendChild(button);
     }
+  }
 
-    // No adjacent match: let normal ZFW app handle it.
-    if(getZfwRecord(ident)){
-      restoreMapForZfw();
+  function keepNonZfwButtonLast(){
+    createButton();
+
+    const bottomZone = document.getElementById("bottomCorrectionZone");
+    const button = document.getElementById("addNonZfwAirportButton");
+
+    if(bottomZone && button && button.parentElement === bottomZone){
+      bottomZone.appendChild(button);
     }
   }
 
   function boot(){
-    const input = document.getElementById("airportInput");
-    if(input){
-      ["input", "change", "keyup", "blur"].forEach(evt => input.addEventListener(evt, handleInput));
-    }
+    ensureStore();
+    applyLocalRecords();
+    createModal();
+    createButton();
 
-    setInterval(() => {
-      const input = document.getElementById("airportInput");
-      const typed = normalizeIdent(input?.value || "");
+    setTimeout(keepNonZfwButtonLast, 250);
+    setTimeout(keepNonZfwButtonLast, 750);
+    setTimeout(keepNonZfwButtonLast, 1500);
+    setInterval(keepNonZfwButtonLast, 2500);
 
-      if(typed && typed.length < 3){
-        clearPartialDisplay();
-        return;
-      }
-
-      if(typed && isCompleteAirportIdent(typed)){
-        const adjacent = getAdjacentRecord(typed);
-        if(adjacent){
-          showAdjacent(typed, adjacent);
-          return;
-        }
-
-        if(getZfwRecord(typed)){
-          restoreMapForZfw();
-          return;
-        }
-      }
-
-      if(activeAdjacentIdent){
-        suppressAdjacentWx();
-        blankMapForAdjacent();
-      }
-    }, 150);
+    window.applyAdjacentAirportLookup = applyAdjacentAirportLookup;
+    window.clearAdjacentAirportDisplayState = clearAdjacentAirportDisplayState;
+    window.addNonZfwAirportRecord = function(identifier, centerCode, airportName){
+      const saved = addRecordToStore(identifier, centerCode, airportName || canonicalAirportIdent(identifier));
+      if(saved) saveSharedRecord(saved.ident, saved.record);
+      return Boolean(saved);
+    };
   }
 
   if(document.readyState === "loading"){
     document.addEventListener("DOMContentLoaded", boot);
-  } else {
+  }else{
     boot();
   }
 })();

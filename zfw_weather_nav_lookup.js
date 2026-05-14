@@ -28,6 +28,17 @@
     return true;
   }
 
+  function hasSameAirportAndNavaidName(record){
+    if(!record) return false;
+    const name = String(record.airport_name || record.name || "").toUpperCase();
+    return name.includes(" / ");
+  }
+
+  function shouldSuppressMap(record){
+    if(!record) return false;
+    return isNavType(record) && !hasSameAirportAndNavaidName(record);
+  }
+
   function clone(record){ return JSON.parse(JSON.stringify(record || {})); }
 
   function getRecord(ident){
@@ -71,12 +82,7 @@
   }
 
   function sourceNavData(){
-    return Object.assign(
-      {},
-      window.ZFW_NAV_DATA || {},
-      window.ZFW_SUPPLEMENTAL_NAVAIDS || {},
-      window.ZFW_SUPPLEMENTAL_WAYPOINTS || {}
-    );
+    return Object.assign({}, window.ZFW_NAV_DATA || {}, window.ZFW_SUPPLEMENTAL_NAVAIDS || {}, window.ZFW_SUPPLEMENTAL_WAYPOINTS || {});
   }
 
   function mergeNavData(){
@@ -176,9 +182,32 @@
   }
 
   function clearFalseNoMatch(record){
-    if(record && isNavType(record)){
-      forceStatus("Found");
-    }
+    if(record && isNavType(record)) forceStatus("Found");
+  }
+
+  function nearestWeatherCard(){
+    return document.getElementById("nearestWeatherCard") || document.getElementById("nearestWeather")?.closest(".card");
+  }
+
+  function setNearestHighlight(on){
+    const card = nearestWeatherCard();
+    if(!card) return;
+    if(on) card.classList.add("nearest-wx-highlight");
+    else card.classList.remove("nearest-wx-highlight");
+  }
+
+  function injectHighlightStyle(){
+    if(document.getElementById("nearestWxHighlightStyle")) return;
+    const style = document.createElement("style");
+    style.id = "nearestWxHighlightStyle";
+    style.textContent = `.nearest-wx-highlight{border-color:#ffd166!important;box-shadow:0 0 0 2px rgba(255,209,102,.45),0 0 16px rgba(255,209,102,.35)!important}.nearest-wx-highlight .card-title,.nearest-wx-highlight .card-value{color:#ffd166!important}`;
+    document.head.appendChild(style);
+  }
+
+  function hideMapForNav(record){
+    const hide = shouldSuppressMap(record);
+    const mapCard = document.querySelector(".map-card") || document.getElementById("zfwMap")?.closest(".card");
+    if(mapCard) mapCard.style.display = hide ? "none" : "";
   }
 
   function writeNearest(output, nearest, ident, record){
@@ -190,13 +219,19 @@
     lastFoundWasNav = isNavType(record);
     lastFoundRecord = record || null;
     clearFalseNoMatch(record);
+    setNearestHighlight(isNavType(record));
+    hideMapForNav(record);
   }
 
   function restoreLast(output){
     if(!lastDisplayedWx) return false;
     output.textContent = lastDisplayedWx;
     output.title = lastDisplayedTitle || "";
-    if(lastFoundWasNav) forceStatus("Found");
+    if(lastFoundWasNav){
+      forceStatus("Found");
+      setNearestHighlight(true);
+      hideMapForNav(lastFoundRecord);
+    }
     return true;
   }
 
@@ -218,7 +253,6 @@
 
     const nearest = calculateNearest(record);
     if(!nearest){
-      // Do not erase a valid previous navaid result because app.js may clear/rewrite the input after lookup.
       if(!record && lastFoundWasNav && lastDisplayedWx){
         restoreLast(output);
         return;
@@ -230,6 +264,8 @@
       lastDisplayedTitle = "";
       lastFoundWasNav = false;
       lastFoundRecord = null;
+      setNearestHighlight(false);
+      hideMapForNav(record);
       return;
     }
 
@@ -245,15 +281,12 @@
   }
 
   function wire(){
+    injectHighlightStyle();
     mergeNavData();
 
     const input = document.getElementById("airportInput");
-    if(input){
-      ["input","change","keyup","blur"].forEach(function(evt){ input.addEventListener(evt, scheduleUpdate); });
-    }
+    if(input) ["input","change","keyup","blur"].forEach(function(evt){ input.addEventListener(evt, scheduleUpdate); });
 
-    // Hard guard: app.js can leave "NO MATCH: X" behind after clearing input.
-    // If we have a valid navpoint result, keep the displayed status synchronized.
     setInterval(function(){
       const input = document.getElementById("airportInput");
       const output = document.getElementById("nearestWeather");
@@ -262,9 +295,8 @@
       const typedIdent = normalizeIdent(input.value);
       const outText = normalizeIdent(output.textContent);
 
-      if(typedIdent){
-        updateNearestWeather();
-      } else {
+      if(typedIdent) updateNearestWeather();
+      else {
         if(lastDisplayedWx && (!outText || outText === "—")) restoreLast(output);
         if(lastFoundWasNav && statusLooksBad()) forceStatus("Found");
       }

@@ -345,17 +345,46 @@
     button.type = "button";
     button.id = "addNonZfwAirportButton";
     button.textContent = "Add Non-ZFW Airport";
+
+    // Match the existing Add/Amend button color scheme and rounded shape.
+    button.className = "action-btn secondary";
+    button.style.border = "0";
+    button.style.borderRadius = "12px";
+    button.style.background = "#64748b";
+    button.style.color = "#ffffff";
+    button.style.fontWeight = "800";
+    button.style.padding = "10px 14px";
+    button.style.cursor = "pointer";
+    button.style.fontSize = "0.95rem";
+
     button.addEventListener("click", openModal);
 
     const bottomZone = document.getElementById("bottomCorrectionZone");
     if(bottomZone){
       bottomZone.appendChild(button);
+
+      // Keep it as the third button in the bottom row.
+      // Airport = first, Waypoint/Navaid = second, Non-ZFW = third.
+      const airportButton = Array.from(bottomZone.querySelectorAll("button")).find(function(btn){
+        return (btn.textContent || "").trim() === "Add/Amend Airport";
+      });
+      const waypointButton = Array.from(bottomZone.querySelectorAll("button")).find(function(btn){
+        return (btn.textContent || "").trim() === "Add/Amend Waypoint/Navaid for PIREP";
+      });
+
+      if(airportButton && waypointButton){
+        bottomZone.appendChild(button);
+      }
     } else {
       document.body.appendChild(button);
     }
 
     if(window.moveCorrectionButtonsToBottom){
       window.moveCorrectionButtonsToBottom();
+      const bottom = document.getElementById("bottomCorrectionZone");
+      if(bottom){
+        bottom.appendChild(button);
+      }
     }
   }
 

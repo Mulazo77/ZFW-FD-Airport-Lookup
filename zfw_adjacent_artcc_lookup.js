@@ -9,6 +9,139 @@
     ZME: { name: "Memphis ARTCC", fdcd: "901-368-8453/8449" }
   };
 
+
+  function injectNonZfwStyles(){
+    if(document.getElementById("nonZfwAirportStyles")) return;
+
+    const style = document.createElement("style");
+    style.id = "nonZfwAirportStyles";
+    style.textContent = `
+      #addNonZfwAirportButton {
+        border: 0 !important;
+        border-radius: 12px !important;
+        background: #64748b !important;
+        color: #ffffff !important;
+        font-weight: 800 !important;
+        padding: 10px 14px !important;
+        font-size: 0.95rem !important;
+        line-height: 1.15 !important;
+        cursor: pointer !important;
+        box-shadow: none !important;
+        font-family: inherit !important;
+      }
+
+      #addNonZfwAirportButton:hover {
+        filter: brightness(1.08);
+      }
+
+      #nonZfwAirportModal {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 10000 !important;
+        display: none;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 24px !important;
+        background: rgba(0, 0, 0, 0.62) !important;
+      }
+
+      #nonZfwAirportModal[aria-hidden="false"] {
+        display: flex !important;
+      }
+
+      #nonZfwAirportModal .correction-dialog {
+        width: min(720px, 96vw) !important;
+        background: #ffffff !important;
+        color: #111827 !important;
+        border-radius: 14px !important;
+        padding: 24px !important;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45) !important;
+      }
+
+      #nonZfwAirportModal h2 {
+        margin: 0 0 8px !important;
+        color: #111827 !important;
+      }
+
+      #nonZfwAirportModal p {
+        margin: 0 0 18px !important;
+        color: #475569 !important;
+      }
+
+      #nonZfwAirportModal label {
+        display: block !important;
+        font-weight: 800 !important;
+        margin-bottom: 6px !important;
+        color: #111827 !important;
+      }
+
+      #nonZfwAirportModal input,
+      #nonZfwAirportModal select {
+        width: 100% !important;
+        padding: 10px 12px !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 10px !important;
+        background: #ffffff !important;
+        color: #111827 !important;
+        font-size: 1rem !important;
+        box-sizing: border-box !important;
+      }
+
+      #nonZfwAirportModal .correction-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 14px !important;
+      }
+
+      #nonZfwAirportModal .correction-field.full {
+        grid-column: 1 / -1 !important;
+      }
+
+      #nonZfwAirportModal .correction-help {
+        margin-top: 6px !important;
+        color: #64748b !important;
+        font-size: 0.88rem !important;
+      }
+
+      #nonZfwAirportModal .correction-actions {
+        margin-top: 18px !important;
+        display: flex !important;
+        justify-content: flex-end !important;
+        gap: 10px !important;
+      }
+
+      #nonZfwAirportModal .correction-actions button {
+        border: 0 !important;
+        border-radius: 12px !important;
+        padding: 10px 14px !important;
+        font-weight: 800 !important;
+        cursor: pointer !important;
+      }
+
+      #nonZfwAirportModal .correction-actions .cancel {
+        background: #64748b !important;
+        color: #ffffff !important;
+      }
+
+      #nonZfwAirportModal .correction-actions button[type="submit"] {
+        background: #156082 !important;
+        color: #ffffff !important;
+      }
+
+      #nonZfwAirportModal .correction-message {
+        margin-top: 12px !important;
+        font-weight: 800 !important;
+        color: #166534 !important;
+      }
+
+      #nonZfwAirportModal .correction-message.error {
+        color: #b91c1c !important;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
   function normalizeIdent(value){
     return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
   }
@@ -215,6 +348,7 @@
   }
 
   function createModal(){
+    injectNonZfwStyles();
     if(document.getElementById("nonZfwAirportModal")) return;
 
     const modal = document.createElement("div");
@@ -339,6 +473,7 @@
   }
 
   function createButton(){
+    injectNonZfwStyles();
     let button = document.getElementById("addNonZfwAirportButton");
 
     if(!button){
@@ -346,7 +481,7 @@
       button.type = "button";
       button.id = "addNonZfwAirportButton";
       button.textContent = "Add Non-ZFW Airport";
-      button.className = "secondary";
+      button.className = "action-btn secondary";
       button.addEventListener("click", openModal);
     }
 

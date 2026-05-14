@@ -390,7 +390,7 @@
   }
 
   function createCorrectionUi() {
-    if (document.getElementById("correctionTools")) return;
+    if (document.getElementById("correctionModal")) return;
 
     const style = document.createElement("style");
     style.textContent = `
@@ -523,16 +523,13 @@
     `;
     document.head.appendChild(style);
 
-    const tools = document.createElement("div");
-    tools.id = "correctionTools";
-    tools.className = "correction-tools";
-    tools.innerHTML = `
-      <button type="button" id="amendAirportButton">Add/Amend Airport</button>
-    `;
-
-    const searchRow = document.querySelector(".search-row");
-    if (searchRow) {
-      searchRow.appendChild(tools);
+    const tools = document.getElementById("correctionTools");
+    if (tools && !document.getElementById("amendAirportButton")) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.id = "amendAirportButton";
+      button.textContent = "Add/Amend Airport";
+      tools.appendChild(button);
     }
 
     const modal = document.createElement("div");
@@ -868,16 +865,21 @@
   }
 
   function createPirepUi() {
-    if (document.getElementById("addPirepNavButton")) return;
+    if (document.getElementById("pirepNavModal")) return;
 
     const tools = document.getElementById("correctionTools");
-    if (tools) {
-      const button = document.createElement("button");
+    let button = document.getElementById("addPirepNavButton");
+
+    if (tools && !button) {
+      button = document.createElement("button");
       button.type = "button";
       button.id = "addPirepNavButton";
       button.className = "secondary";
       button.textContent = "Add/Amend Waypoint/Navaid for PIREP";
       tools.appendChild(button);
+    }
+
+    if (button) {
       button.addEventListener("click", openPirepModal);
     }
 
@@ -1092,7 +1094,7 @@ const corrections = loadCorrections();
   const LOW_SECTORS = [
     "",
     "ABI 20", "ADM 21", "BYP 35", "CQY 39", "DAL 29", "DON 29",
-    "FUZ 38", "GGG 37", "JEN 56", "LBB 64", "MLU 31",
+    "FUZ 38", "GGG 37", "GNP 46", "JEN 56", "LBBL 64", "MLU 31",
     "RDR 66", "SJT 41", "SPS 34", "TXK 27", "UKW 48"
   ];
 

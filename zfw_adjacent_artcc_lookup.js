@@ -113,7 +113,7 @@
         identifier: ident,
         center: record.center,
         name: record.name || ident,
-        fdcd: record.fdcd || CENTER_INFO[record.center]?.fdcd || ""
+        fdcd: record.fdcd || (CENTER_INFO[record.center] ? CENTER_INFO[record.center].fdcd : "")
       });
     }
 
@@ -208,111 +208,26 @@
 
     const style = document.createElement("style");
     style.id = "nonZfwAirportStyles";
-    style.textContent = `
-      #nonZfwAirportModal {
-        position: fixed !important;
-        inset: 0 !important;
-        z-index: 10000 !important;
-        display: none;
-        align-items: center !important;
-        justify-content: center !important;
-        padding: 24px !important;
-        background: rgba(0, 0, 0, 0.62) !important;
-      }
-
-      #nonZfwAirportModal[aria-hidden="false"] {
-        display: flex !important;
-      }
-
-      #nonZfwAirportModal .correction-dialog {
-        width: min(720px, 96vw) !important;
-        background: #ffffff !important;
-        color: #111827 !important;
-        border-radius: 14px !important;
-        padding: 24px !important;
-        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45) !important;
-      }
-
-      #nonZfwAirportModal h2 {
-        margin: 0 0 8px !important;
-        color: #111827 !important;
-      }
-
-      #nonZfwAirportModal p {
-        margin: 0 0 18px !important;
-        color: #475569 !important;
-      }
-
-      #nonZfwAirportModal label {
-        display: block !important;
-        font-weight: 800 !important;
-        margin-bottom: 6px !important;
-        color: #111827 !important;
-      }
-
-      #nonZfwAirportModal input,
-      #nonZfwAirportModal select {
-        width: 100% !important;
-        padding: 10px 12px !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 10px !important;
-        background: #ffffff !important;
-        color: #111827 !important;
-        font-size: 1rem !important;
-        box-sizing: border-box !important;
-      }
-
-      #nonZfwAirportModal .correction-grid {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 14px !important;
-      }
-
-      #nonZfwAirportModal .correction-field.full {
-        grid-column: 1 / -1 !important;
-      }
-
-      #nonZfwAirportModal .correction-help {
-        margin-top: 6px !important;
-        color: #64748b !important;
-        font-size: 0.88rem !important;
-      }
-
-      #nonZfwAirportModal .correction-actions {
-        margin-top: 18px !important;
-        display: flex !important;
-        justify-content: flex-end !important;
-        gap: 10px !important;
-      }
-
-      #nonZfwAirportModal .correction-actions button {
-        border: 0 !important;
-        border-radius: 12px !important;
-        padding: 10px 14px !important;
-        font-weight: 800 !important;
-        cursor: pointer !important;
-      }
-
-      #nonZfwAirportModal .correction-actions .cancel {
-        background: #64748b !important;
-        color: #ffffff !important;
-      }
-
-      #nonZfwAirportModal .correction-actions button[type="submit"] {
-        background: #156082 !important;
-        color: #ffffff !important;
-      }
-
-      #nonZfwAirportModal .correction-message {
-        margin-top: 12px !important;
-        font-weight: 800 !important;
-        color: #166534 !important;
-      }
-
-      #nonZfwAirportModal .correction-message.error {
-        color: #b91c1c !important;
-      }
-    `;
+    style.textContent =
+      '#nonZfwAirportModal{' +
+      'position:fixed!important;inset:0!important;z-index:10000!important;display:none;' +
+      'align-items:center!important;justify-content:center!important;padding:24px!important;background:rgba(0,0,0,.62)!important;' +
+      '}' +
+      '#nonZfwAirportModal[aria-hidden="false"]{display:flex!important;}' +
+      '#nonZfwAirportModal .correction-dialog{width:min(720px,96vw)!important;background:#fff!important;color:#111827!important;border-radius:14px!important;padding:24px!important;box-shadow:0 24px 80px rgba(0,0,0,.45)!important;}' +
+      '#nonZfwAirportModal h2{margin:0 0 8px!important;color:#111827!important;}' +
+      '#nonZfwAirportModal p{margin:0 0 18px!important;color:#475569!important;}' +
+      '#nonZfwAirportModal label{display:block!important;font-weight:800!important;margin-bottom:6px!important;color:#111827!important;}' +
+      '#nonZfwAirportModal input,#nonZfwAirportModal select{width:100%!important;padding:10px 12px!important;border:1px solid #cbd5e1!important;border-radius:10px!important;background:#fff!important;color:#111827!important;font-size:1rem!important;box-sizing:border-box!important;}' +
+      '#nonZfwAirportModal .correction-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important;}' +
+      '#nonZfwAirportModal .correction-field.full{grid-column:1/-1!important;}' +
+      '#nonZfwAirportModal .correction-help{margin-top:6px!important;color:#64748b!important;font-size:.88rem!important;}' +
+      '#nonZfwAirportModal .correction-actions{margin-top:18px!important;display:flex!important;justify-content:flex-end!important;gap:10px!important;}' +
+      '#nonZfwAirportModal .correction-actions button{border:0!important;border-radius:12px!important;padding:10px 14px!important;font-weight:800!important;cursor:pointer!important;}' +
+      '#nonZfwAirportModal .correction-actions .cancel{background:#64748b!important;color:#fff!important;}' +
+      '#nonZfwAirportModal .correction-actions button[type="submit"]{background:#156082!important;color:#fff!important;}' +
+      '#nonZfwAirportModal .correction-message{margin-top:12px!important;font-weight:800!important;color:#166534!important;}' +
+      '#nonZfwAirportModal .correction-message.error{color:#b91c1c!important;}';
 
     document.head.appendChild(style);
   }
@@ -327,45 +242,39 @@
     modal.className = "correction-modal";
     modal.setAttribute("aria-hidden", "true");
 
-    modal.innerHTML = `
-      <div class="correction-dialog">
-        <h2>Add Non-ZFW Airport</h2>
-        <p>Add an airport outside ZFW airspace so future lookups show the correct adjacent ARTCC Flight Data number.</p>
-
-        <form id="nonZfwAirportForm">
-          <div class="correction-grid">
-            <div class="correction-field">
-              <label for="nonZfwIdentifier">Airport Identifier</label>
-              <input id="nonZfwIdentifier" name="identifier" type="text" maxlength="4" required />
-              <div class="correction-help">Examples: IAB or KIAB</div>
-            </div>
-
-            <div class="correction-field">
-              <label for="nonZfwCenter">ARTCC</label>
-              <select id="nonZfwCenter" name="center" required>
-                <option value="">Select</option>
-                <option value="ZAB">ZAB</option>
-                <option value="ZKC">ZKC</option>
-                <option value="ZHU">ZHU</option>
-                <option value="ZME">ZME</option>
-              </select>
-            </div>
-
-            <div class="correction-field full">
-              <label for="nonZfwName">Airport Name</label>
-              <input id="nonZfwName" name="airportName" type="text" placeholder="Optional" />
-            </div>
-          </div>
-
-          <div id="nonZfwMessage" class="correction-message"></div>
-
-          <div class="correction-actions">
-            <button type="button" class="cancel" id="nonZfwCancel">Cancel</button>
-            <button type="submit">Save Non-ZFW Airport</button>
-          </div>
-        </form>
-      </div>
-    `;
+    modal.innerHTML = ''
+      + '<div class="correction-dialog">'
+      + '<h2>Add Non-ZFW Airport</h2>'
+      + '<p>Add an airport outside ZFW airspace so future lookups show the correct adjacent ARTCC Flight Data number.</p>'
+      + '<form id="nonZfwAirportForm">'
+      + '<div class="correction-grid">'
+      + '<div class="correction-field">'
+      + '<label for="nonZfwIdentifier">Airport Identifier</label>'
+      + '<input id="nonZfwIdentifier" name="identifier" type="text" maxlength="4" required />'
+      + '<div class="correction-help">Examples: IAB or KIAB</div>'
+      + '</div>'
+      + '<div class="correction-field">'
+      + '<label for="nonZfwCenter">ARTCC</label>'
+      + '<select id="nonZfwCenter" name="center" required>'
+      + '<option value="">Select</option>'
+      + '<option value="ZAB">ZAB</option>'
+      + '<option value="ZKC">ZKC</option>'
+      + '<option value="ZHU">ZHU</option>'
+      + '<option value="ZME">ZME</option>'
+      + '</select>'
+      + '</div>'
+      + '<div class="correction-field full">'
+      + '<label for="nonZfwName">Airport Name</label>'
+      + '<input id="nonZfwName" name="airportName" type="text" placeholder="Optional" />'
+      + '</div>'
+      + '</div>'
+      + '<div id="nonZfwMessage" class="correction-message"></div>'
+      + '<div class="correction-actions">'
+      + '<button type="button" class="cancel" id="nonZfwCancel">Cancel</button>'
+      + '<button type="submit">Save Non-ZFW Airport</button>'
+      + '</div>'
+      + '</form>'
+      + '</div>';
 
     document.body.appendChild(modal);
 
@@ -441,7 +350,9 @@
     }
 
     modal.setAttribute("aria-hidden", "false");
-    setTimeout(function(){ if(ident) ident.focus(); }, 0);
+    setTimeout(function(){
+      if(ident) ident.focus();
+    }, 0);
   }
 
   function closeModal(){
@@ -449,28 +360,11 @@
     if(modal) modal.setAttribute("aria-hidden", "true");
   }
 
-  function createButton(){
-    let button = document.getElementById("addNonZfwAirportButton");
-
-    if(!button){
-      button = document.createElement("button");
-      button.type = "button";
-      button.id = "addNonZfwAirportButton";
-      button.className = "action-btn secondary";
-      button.textContent = "Add Non-ZFW Airport";
+  function attachStaticButton(){
+    const button = document.getElementById("addNonZfwAirportButton");
+    if(button && button.dataset.nonZfwBound !== "true"){
+      button.dataset.nonZfwBound = "true";
       button.addEventListener("click", openModal);
-    }
-
-    const bottomZone = document.getElementById("bottomCorrectionZone");
-
-    if(bottomZone){
-      bottomZone.appendChild(button);
-    }else{
-      document.body.appendChild(button);
-    }
-
-    if(window.moveCorrectionButtonsToBottom){
-      window.moveCorrectionButtonsToBottom();
     }
   }
 
@@ -478,11 +372,7 @@
     ensureStore();
     applyLocalRecords();
     createModal();
-    createButton();
-
-    setTimeout(createButton, 250);
-    setTimeout(createButton, 750);
-    setTimeout(createButton, 1500);
+    attachStaticButton();
 
     window.applyAdjacentAirportLookup = applyAdjacentAirportLookup;
     window.clearAdjacentAirportDisplayState = clearAdjacentAirportDisplayState;

@@ -217,25 +217,23 @@
       display: flex !important;
       justify-content: center !important;
       align-items: center !important;
-      gap: 16px !important;
-      flex-wrap: wrap !important;
       clear: both !important;
     }
 
-    .bottom-correction-zone .correction-tools,
-    .bottom-correction-zone .action-buttons,
-    .bottom-correction-zone .top-action-buttons,
-    .bottom-correction-zone .header-action-buttons {
-      width: auto !important;
-      margin-top: 0 !important;
+    .bottom-correction-zone .correction-tools {
+      width: 100% !important;
       display: flex !important;
       justify-content: center !important;
       align-items: center !important;
       gap: 16px !important;
       flex-wrap: wrap !important;
+      margin: 0 !important;
     }
 
-    .bottom-correction-zone button {
+    .bottom-correction-zone .correction-tools button {
+      width: 420px !important;
+      min-width: 420px !important;
+      max-width: 420px !important;
       height: 42px !important;
       min-height: 42px !important;
       padding: 0 18px !important;
@@ -256,13 +254,30 @@
       box-shadow: none !important;
     }
 
-    .bottom-correction-zone button:nth-of-type(1) {
+    #amendAirportButton {
       background: #156082 !important;
     }
 
-    .bottom-correction-zone button:nth-of-type(2),
-    .bottom-correction-zone button:nth-of-type(3) {
+    #addPirepNavButton,
+    #addNonZfwAirportButton {
       background: #64748b !important;
+    }
+
+    @media (max-width: 1450px) {
+      .bottom-correction-zone .correction-tools button {
+        width: 380px !important;
+        min-width: 380px !important;
+        max-width: 380px !important;
+        font-size: 0.86rem !important;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .bottom-correction-zone .correction-tools button {
+        width: min(420px, 96vw) !important;
+        min-width: 0 !important;
+        max-width: 96vw !important;
+      }
     }
   </style>
 
@@ -312,7 +327,13 @@
         <div id="mapCard" class="card map-card"><div class="card-title">ZFW ARTCC AIRSPACE</div><canvas id="zfwMap"></canvas></div>
       </section>
 
-      <section id="bottomCorrectionZone" class="bottom-correction-zone" aria-label="Correction tools"></section>
+      <section id="bottomCorrectionZone" class="bottom-correction-zone" aria-label="Correction tools">
+        <div id="correctionTools" class="correction-tools">
+          <button type="button" id="amendAirportButton">Add/Amend Airport</button>
+          <button type="button" id="addPirepNavButton" class="secondary">Add/Amend Waypoint/Navaid for PIREP</button>
+          <button type="button" id="addNonZfwAirportButton" class="secondary">Add Non-ZFW Airport</button>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -439,81 +460,6 @@
       document.getElementById("username").value = "";
       document.getElementById("password").value = "";
       showLogin();
-    });
-  </script>
-  <script>
-    function moveCorrectionButtonsToBottom() {
-      const bottomZone = document.getElementById("bottomCorrectionZone");
-      if (!bottomZone) return;
-
-      const order = [
-        "Add/Amend Airport",
-        "Add/Amend Waypoint/Navaid for PIREP",
-        "Add Non-ZFW Airport"
-      ];
-
-      const orderedButtons = [];
-
-      order.forEach(function (label) {
-        const button = Array.from(document.querySelectorAll("button")).find(function (btn) {
-          return (btn.textContent || "").trim() === label;
-        });
-
-        if (button) {
-          bottomZone.appendChild(button);
-          orderedButtons.push(button);
-        }
-      });
-
-      normalizeBottomCorrectionButtons(orderedButtons);
-    }
-
-    function normalizeBottomCorrectionButtons(buttons) {
-      if (!buttons || buttons.length === 0) return;
-
-      buttons.forEach(function (button) {
-        button.style.width = "auto";
-        button.style.minWidth = "0";
-        button.style.maxWidth = "none";
-      });
-
-      requestAnimationFrame(function () {
-        let maxWidth = 0;
-
-        buttons.forEach(function (button) {
-          const needed = Math.ceil(button.scrollWidth + 36);
-          if (needed > maxWidth) maxWidth = needed;
-        });
-
-        if (maxWidth < 220) maxWidth = 220;
-
-        buttons.forEach(function (button) {
-          button.style.width = maxWidth + "px";
-          button.style.minWidth = maxWidth + "px";
-          button.style.maxWidth = maxWidth + "px";
-          button.style.height = "42px";
-          button.style.minHeight = "42px";
-          button.style.padding = "0 18px";
-          button.style.display = "inline-flex";
-          button.style.alignItems = "center";
-          button.style.justifyContent = "center";
-          button.style.whiteSpace = "nowrap";
-          button.style.boxSizing = "border-box";
-        });
-      });
-    }
-
-    document.addEventListener("DOMContentLoaded", function () {
-      moveCorrectionButtonsToBottom();
-      setTimeout(moveCorrectionButtonsToBottom, 250);
-      setTimeout(moveCorrectionButtonsToBottom, 750);
-      setTimeout(moveCorrectionButtonsToBottom, 1500);
-
-      const observer = new MutationObserver(function () {
-        moveCorrectionButtonsToBottom();
-      });
-
-      observer.observe(document.body, { childList: true, subtree: true });
     });
   </script>
 

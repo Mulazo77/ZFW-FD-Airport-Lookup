@@ -1,6 +1,6 @@
-// Shared Firestore correction layer for ZFW FDU Airport Locator.
-// Keeps the current site login in place and saves corrections centrally.
-// Requires firebase_config.js to be loaded before this file.
+// Safe Firestore correction layer for ZFW FDU Airport Locator.
+// This version will not trap the site in a loading loop if Firebase is blocked,
+// not configured, or anonymous auth is not enabled.
 
 (function () {
   "use strict";
@@ -8,8 +8,10 @@
   const FIREBASE_APP_URL = "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   const FIREBASE_AUTH_URL = "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   const FIREBASE_FIRESTORE_URL = "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+  const FIREBASE_TIMEOUT_MS = 5000;
 
-  let firebaseReadyPromise = null;
+  let initialized = false;
+  let initFailed = false;
   let firestoreApi = null;
   let db = null;
 
@@ -32,57 +34,11 @@
     return JSON.parse(JSON.stringify(value || {}));
   }
 
-  function recordCollection(type) {
-    type = String(type || "").toLowerCase();
-    if (type === "airport") return "airports";
-    return "navpoints";
-  }
-
-  async function importFirebaseModules() {
-    const [appMod, authMod, firestoreMod] = await Promise.all([
-      import(FIREBASE_APP_URL),
-      import(FIREBASE_AUTH_URL),
-      import(FIREBASE_FIRESTORE_URL)
-    ]);
-
-    return { appMod, authMod, firestoreMod };
-  }
-
-  async function initFirebase() {
-    if (firebaseReadyPromise) return firebaseReadyPromise;
-
-    firebaseReadyPromise = (async function () {
-      if (!window.ZFW_FIREBASE_CONFIG || window.ZFW_FIREBASE_CONFIG.apiKey === "PASTE_API_KEY_HERE") {
-        console.warn("Firebase config is not set. Shared corrections are disabled until firebase_config.js is completed.");
-        return null;
-      }
-
-      const { appMod, authMod, firestoreMod } = await importFirebaseModules();
-
-      const app = appMod.initializeApp(window.ZFW_FIREBASE_CONFIG);
-      const auth = authMod.getAuth(app);
-      db = firestoreMod.getFirestore(app);
-      firestoreApi = firestoreMod;
-
-      // Keeps current ZFW/ZFWCD site login, then uses anonymous Firebase auth for Firestore rules.
-      // This is not strong identity security, but it matches the current gate while enabling central writes.
-      await authMod.signInAnonymously(auth);
-
-      return { app, auth, db, firestoreApi };
-    })();
-
-    return firebaseReadyPromise;
-  }
-
   function applyRecord(type, ident, record) {
     ident = normalizeIdent(ident);
     if (!ident) return;
 
     record = clone(record);
-
-    if (record.type === undefined) {
-      record.type = type === "airport" ? "AIRPORT" : (record.record_type || "WAYPOINT");
-    }
 
     if (type === "airport") {
       const records = getAirportRecords();
@@ -94,90 +50,149 @@
         records["K" + ident] = clone(record);
       }
     } else {
-      const navData = getNavData();
-      navData[ident] = record;
+      getNavData()[ident] = record;
       getAirportRecords()[ident] = record;
+    }
+
+    if (window.ZFW_UPDATE_NEAREST_WX) {
+      setTimeout(window.ZFW_UPDATE_NEAREST_WX, 0);
+    }
+  }
+
+  function timeoutPromise(ms) {
+    return new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Firebase connection timed out.")), ms);
+    });
+  }
+
+  async function initFirebaseSafe() {
+    if (initialized) return true;
+    if (initFailed) return false;
+
+    try {
+      if (!window.ZFW_FIREBASE_CONFIG || window.ZFW_FIREBASE_CONFIG.apiKey === "PASTE_API_KEY_HERE") {
+        throw new Error("Firebase config is missing.");
+      }
+
+      const firebaseLoad = Promise.all([
+        import(FIREBASE_APP_URL),
+        import(FIREBASE_AUTH_URL),
+        import(FIREBASE_FIRESTORE_URL)
+      ]);
+
+      const [appMod, authMod, firestoreMod] = await Promise.race([
+        firebaseLoad,
+        timeoutPromise(FIREBASE_TIMEOUT_MS)
+      ]);
+
+      const app = appMod.initializeApp(window.ZFW_FIREBASE_CONFIG);
+      const auth = authMod.getAuth(app);
+      db = firestoreMod.getFirestore(app);
+      firestoreApi = firestoreMod;
+
+      await Promise.race([
+        authMod.signInAnonymously(auth),
+        timeoutPromise(FIREBASE_TIMEOUT_MS)
+      ]);
+
+      initialized = true;
+      console.log("ZFW Firestore shared corrections connected.");
+      return true;
+    } catch (error) {
+      initFailed = true;
+      console.warn("ZFW Firestore shared corrections disabled:", error.message || error);
+      return false;
     }
   }
 
   async function loadSharedCorrections() {
-    const ready = await initFirebase();
-    if (!ready) return;
+    const ok = await initFirebaseSafe();
+    if (!ok) return false;
 
-    const { collection, getDocs } = firestoreApi;
+    try {
+      const { collection, getDocs } = firestoreApi;
 
-    for (const type of ["airport", "navpoint"]) {
-      const colName = recordCollection(type);
-      const snapshot = await getDocs(collection(db, "zfw_corrections", colName, "records"));
+      for (const item of [
+        { type: "airport", path: "airports" },
+        { type: "navpoint", path: "navpoints" }
+      ]) {
+        const snapshot = await getDocs(collection(db, "zfw_corrections", item.path, "records"));
+        snapshot.forEach((docSnap) => {
+          applyRecord(item.type, docSnap.id, docSnap.data());
+        });
+      }
 
-      snapshot.forEach((docSnap) => {
-        applyRecord(type, docSnap.id, docSnap.data());
-      });
-    }
-
-    if (window.ZFW_UPDATE_NEAREST_WX) {
-      window.ZFW_UPDATE_NEAREST_WX();
+      return true;
+    } catch (error) {
+      console.warn("Could not load shared Firestore corrections:", error.message || error);
+      return false;
     }
   }
 
   async function saveSharedRecord(type, ident, record) {
-    const ready = await initFirebase();
-    if (!ready) {
-      alert("Firebase is not configured yet. The correction was applied only to this browser.");
-      return false;
-    }
+    const ok = await initFirebaseSafe();
 
     ident = normalizeIdent(ident);
     if (!ident) return false;
 
-    const { doc, setDoc, serverTimestamp } = firestoreApi;
-    const colName = recordCollection(type);
-    const cleanRecord = clone(record);
+    applyRecord(type, ident, record);
 
-    cleanRecord.identifier = ident;
-    cleanRecord.data_category = type === "airport" ? "airport" : "navpoint";
-    cleanRecord.updated_at = serverTimestamp();
-
-    await setDoc(doc(db, "zfw_corrections", colName, "records", ident), cleanRecord);
-
-    applyRecord(type, ident, cleanRecord);
-
-    if (window.ZFW_UPDATE_NEAREST_WX) {
-      window.ZFW_UPDATE_NEAREST_WX();
+    if (!ok) {
+      return false;
     }
 
-    return true;
+    try {
+      const { doc, setDoc, serverTimestamp } = firestoreApi;
+      const collectionName = type === "airport" ? "airports" : "navpoints";
+      const cleanRecord = clone(record);
+
+      cleanRecord.identifier = ident;
+      cleanRecord.data_category = type === "airport" ? "airport" : "navpoint";
+      cleanRecord.updated_at = serverTimestamp();
+
+      await setDoc(doc(db, "zfw_corrections", collectionName, "records", ident), cleanRecord);
+      return true;
+    } catch (error) {
+      console.warn("Could not save shared Firestore correction:", error.message || error);
+      return false;
+    }
   }
 
   function listenForSharedCorrections() {
-    initFirebase().then((ready) => {
-      if (!ready) return;
+    initFirebaseSafe().then((ok) => {
+      if (!ok) return;
 
-      const { collection, onSnapshot } = firestoreApi;
+      try {
+        const { collection, onSnapshot } = firestoreApi;
 
-      ["airport", "navpoint"].forEach((type) => {
-        const colName = recordCollection(type);
-
-        onSnapshot(collection(db, "zfw_corrections", colName, "records"), (snapshot) => {
-          snapshot.docChanges().forEach((change) => {
-            if (change.type === "removed") return;
-            applyRecord(type, change.doc.id, change.doc.data());
-          });
-
-          if (window.ZFW_UPDATE_NEAREST_WX) {
-            window.ZFW_UPDATE_NEAREST_WX();
-          }
+        [
+          { type: "airport", path: "airports" },
+          { type: "navpoint", path: "navpoints" }
+        ].forEach((item) => {
+          onSnapshot(
+            collection(db, "zfw_corrections", item.path, "records"),
+            (snapshot) => {
+              snapshot.docChanges().forEach((change) => {
+                if (change.type === "removed") return;
+                applyRecord(item.type, change.doc.id, change.doc.data());
+              });
+            },
+            (error) => {
+              console.warn("Firestore listener stopped:", error.message || error);
+            }
+          );
         });
-      });
+      } catch (error) {
+        console.warn("Could not start Firestore listener:", error.message || error);
+      }
     });
   }
 
   window.ZFW_SAVE_SHARED_RECORD = saveSharedRecord;
   window.ZFW_LOAD_SHARED_CORRECTIONS = loadSharedCorrections;
 
-  // Load once immediately, then listen for future changes.
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", () => {
       loadSharedCorrections().then(listenForSharedCorrections);
     });
   } else {

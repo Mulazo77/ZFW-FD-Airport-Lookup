@@ -5,6 +5,7 @@
   let lastDisplayedWx = "";
   let lastDisplayedTitle = "";
   let lastFoundWasNav = false;
+  let lastFoundRecord = null;
 
   function normalizeIdent(value){ return String(value || "").trim().toUpperCase(); }
 
@@ -159,6 +160,27 @@
     return { id: best.id, title: best.name ? best.name + " — " + best.distanceNm.toFixed(1) + " NM" : best.distanceNm.toFixed(1) + " NM" };
   }
 
+  function forceStatus(text){
+    const status = document.getElementById("status");
+    if(!status) return;
+    status.textContent = text;
+    status.classList.remove("error", "not-found");
+    status.style.color = "";
+  }
+
+  function statusLooksBad(){
+    const status = document.getElementById("status");
+    if(!status) return false;
+    const txt = normalizeIdent(status.textContent);
+    return txt.includes("NO MATCH") || txt.includes("NOT FOUND") || txt.includes("NO RECORD");
+  }
+
+  function clearFalseNoMatch(record){
+    if(record && isNavType(record)){
+      forceStatus("Found");
+    }
+  }
+
   function writeNearest(output, nearest, ident, record){
     output.textContent = nearest.id;
     output.title = nearest.title || "";
@@ -166,6 +188,7 @@
     lastDisplayedWx = nearest.id;
     lastDisplayedTitle = nearest.title || "";
     lastFoundWasNav = isNavType(record);
+    lastFoundRecord = record || null;
     clearFalseNoMatch(record);
   }
 
@@ -173,20 +196,8 @@
     if(!lastDisplayedWx) return false;
     output.textContent = lastDisplayedWx;
     output.title = lastDisplayedTitle || "";
-    if(lastFoundWasNav) clearFalseNoMatch({record_type:"NAVAID"});
+    if(lastFoundWasNav) forceStatus("Found");
     return true;
-  }
-
-  function clearFalseNoMatch(record){
-    if(!record || !isNavType(record)) return;
-    const status = document.getElementById("status");
-    if(!status) return;
-
-    const txt = normalizeIdent(status.textContent);
-    if(txt.includes("NO MATCH") || txt.includes("NOT FOUND") || txt === "" || txt === "READY"){
-      status.textContent = "Found";
-      status.classList.remove("error", "not-found");
-    }
   }
 
   function updateNearestWeather(){
@@ -195,8 +206,10 @@
     if(!input || !output) return;
 
     const typedIdent = normalizeIdent(input.value);
+
     if(!typedIdent){
       restoreLast(output);
+      if(lastFoundWasNav && statusLooksBad()) forceStatus("Found");
       return;
     }
 
@@ -205,11 +218,18 @@
 
     const nearest = calculateNearest(record);
     if(!nearest){
+      // Do not erase a valid previous navaid result because app.js may clear/rewrite the input after lookup.
+      if(!record && lastFoundWasNav && lastDisplayedWx){
+        restoreLast(output);
+        return;
+      }
+
       output.textContent = "—";
       output.title = "No nearest weather reporting station assigned.";
       lastDisplayedWx = "";
       lastDisplayedTitle = "";
       lastFoundWasNav = false;
+      lastFoundRecord = null;
       return;
     }
 
@@ -232,10 +252,11 @@
       ["input","change","keyup","blur"].forEach(function(evt){ input.addEventListener(evt, scheduleUpdate); });
     }
 
+    // Hard guard: app.js can leave "NO MATCH: X" behind after clearing input.
+    // If we have a valid navpoint result, keep the displayed status synchronized.
     setInterval(function(){
       const input = document.getElementById("airportInput");
       const output = document.getElementById("nearestWeather");
-      const status = document.getElementById("status");
       if(!input || !output) return;
 
       const typedIdent = normalizeIdent(input.value);
@@ -245,12 +266,9 @@
         updateNearestWeather();
       } else {
         if(lastDisplayedWx && (!outText || outText === "—")) restoreLast(output);
-        if(lastFoundWasNav && status && normalizeIdent(status.textContent).includes("NO MATCH")){
-          status.textContent = "Found";
-          status.classList.remove("error", "not-found");
-        }
+        if(lastFoundWasNav && statusLooksBad()) forceStatus("Found");
       }
-    }, 400);
+    }, 250);
 
     scheduleUpdate();
   }

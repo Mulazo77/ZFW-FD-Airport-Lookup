@@ -289,7 +289,6 @@
       "zfw_supplemental_waypoints.js",
       "zfw_weather_stations.js",
       "zfw_adjacent_artcc_airports.js",
-      "zfw_adjacent_artcc_lookup.js",
       "firebase_config.js",
       "zfw_firestore_shared.js",
       "airport_corrections.js",
@@ -361,6 +360,13 @@
       const airportInput = document.getElementById("airportInput");
       if (airportInput) {
         airportInput.focus();
+      }
+
+      if (typeof loadZfwAppScriptsAfterLogin === "function") {
+        loadZfwAppScriptsAfterLogin().catch(function (error) {
+          console.error(error);
+          alert("The app scripts failed to load. Check GitHub Pages file names and browser console.");
+        });
       }
     }
 

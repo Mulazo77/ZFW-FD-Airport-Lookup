@@ -1092,7 +1092,7 @@ const corrections = loadCorrections();
   const LOW_SECTORS = [
     "",
     "ABI 20", "ADM 21", "BYP 35", "CQY 39", "DAL 29", "DON 29",
-    "FUZ 38", "GGG 37", "GNP 46", "JEN 56", "LBBL 64", "MLU 31",
+    "FUZ 38", "GGG 37", "JEN 56", "LBB 64", "MLU 31",
     "RDR 66", "SJT 41", "SPS 34", "TXK 27", "UKW 48"
   ];
 

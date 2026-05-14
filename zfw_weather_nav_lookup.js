@@ -209,7 +209,7 @@
 
   function clearAirportOutputsForNav(record){
     if(!record || !isNavType(record)) return;
-    ["sector","area","approach","appVscs","appContact","appHours"].forEach(id => {
+    ["sector","area","approach","vscs","contact","hours"].forEach(id => {
       const el = document.getElementById(id);
       if(el){ el.textContent = "—"; el.innerHTML = "—"; el.title = ""; }
       const card = el ? el.closest(".card") : null;

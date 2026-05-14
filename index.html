@@ -256,6 +256,69 @@
     </main>
   </div>
 
+
+  <script>
+    const ZFW_APP_SCRIPTS = [
+      "airport_data.js",
+      "zfw_nav_data.js",
+      "zfw_weather_stations.js",
+      "firebase_config.js",
+      "zfw_firestore_shared.js",
+      "zfw_weather_nav_lookup.js",
+      "airport_corrections.js",
+      "app.js"
+    ];
+
+    let zfwScriptsLoaded = false;
+
+    function loadScriptSequentially(src) {
+      return new Promise(function (resolve, reject) {
+        const existing = document.querySelector('script[data-zfw-dynamic="' + src + '"]');
+        if (existing) {
+          resolve();
+          return;
+        }
+
+        const script = document.createElement("script");
+        script.src = src + "?v=" + Date.now();
+        script.dataset.zfwDynamic = src;
+        script.onload = resolve;
+        script.onerror = function () {
+          reject(new Error("Failed to load " + src));
+        };
+        document.body.appendChild(script);
+      });
+    }
+
+    async function loadZfwAppScriptsAfterLogin() {
+      if (zfwScriptsLoaded) {
+        if (window.ZFW_START_FIREBASE) {
+          window.ZFW_START_FIREBASE();
+        }
+        return;
+      }
+
+      zfwScriptsLoaded = true;
+
+      for (const src of ZFW_APP_SCRIPTS) {
+        await loadScriptSequentially(src);
+      }
+
+      if (typeof loadZfwAppScriptsAfterLogin === "function") {
+        loadZfwAppScriptsAfterLogin().catch(function (error) {
+          console.error(error);
+          alert("The app scripts failed to load. Check GitHub Pages file names and browser console.");
+        });
+      }
+
+      const airportInput = document.getElementById("airportInput");
+      if (airportInput) {
+        airportInput.focus();
+        airportInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
+  </script>
+
   <script>
     const VALID_USERNAME = "ZFW";
     const VALID_PASSWORD = "ZFWCD";
@@ -275,8 +338,11 @@
         airportInput.focus();
       }
 
-      if (window.ZFW_START_FIREBASE) {
-        window.ZFW_START_FIREBASE();
+      if (typeof loadZfwAppScriptsAfterLogin === "function") {
+        loadZfwAppScriptsAfterLogin().catch(function (error) {
+          console.error(error);
+          alert("The app scripts failed to load. Check GitHub Pages file names and browser console.");
+        });
       }
     }
 
@@ -314,13 +380,5 @@
       showLogin();
     });
   </script>
-  <script src="airport_data.js"></script>
-  <script src="zfw_nav_data.js"></script>
-  <script src="zfw_weather_stations.js"></script>
-  <script src="firebase_config.js"></script>
-  <script src="zfw_firestore_shared.js"></script>
-  <script src="zfw_weather_nav_lookup.js"></script>
-  <script src="airport_corrections.js"></script>
-  <script src="app.js"></script>
 </body>
 </html>

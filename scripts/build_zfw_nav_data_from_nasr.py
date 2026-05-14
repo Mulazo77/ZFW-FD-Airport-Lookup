@@ -435,6 +435,8 @@ def main() -> int:
 
     for row in fix_rows:
         ident = get_ident(row, "FIX")
+        if ident.startswith("K") and len(ident) == 4:
+            ident = ident[1:]
         if not ident or not re.fullmatch(r"[A-Z0-9]{2,5}", ident):
             continue
 
@@ -450,6 +452,8 @@ def main() -> int:
 
     for row in nav_rows:
         ident = get_ident(row, "NAV")
+        if ident.startswith("K") and len(ident) == 4:
+            ident = ident[1:]
         if not ident or not re.fullmatch(r"[A-Z0-9]{2,5}", ident):
             continue
 

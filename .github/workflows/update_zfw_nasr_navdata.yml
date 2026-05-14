@@ -1,0 +1,38 @@
+name: Update ZFW NASR Nav Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Runs weekly so the repo catches new NASR cycles without manual downloads.
+    - cron: "25 9 * * 1"
+
+permissions:
+  contents: write
+
+jobs:
+  build-nav-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build ZFW nav/waypoint/navaid data from FAA NASR
+        run: |
+          python scripts/build_zfw_nav_data_from_nasr.py \
+            --output zfw_nav_data.js \
+            --weather-output zfw_weather_stations.js \
+            --audit NASR_NAVDATA_AUDIT.md
+
+      - name: Commit generated NASR data
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add zfw_nav_data.js zfw_weather_stations.js NASR_NAVDATA_AUDIT.md
+          git diff --cached --quiet && echo "No changes to commit" || git commit -m "Update ZFW NASR nav data"
+          git push

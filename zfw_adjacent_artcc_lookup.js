@@ -2,6 +2,7 @@
   "use strict";
 
   const LOCAL_STORAGE_KEY = "zfwNonZfwAirportCorrections";
+
   const CENTER_INFO = {
     ZAB: { name: "Albuquerque ARTCC", fdcd: "505-856-4561" },
     ZKC: { name: "Kansas City ARTCC", fdcd: "913-254-8508" },
@@ -9,6 +10,198 @@
     ZME: { name: "Memphis ARTCC", fdcd: "901-368-8453/8449" }
   };
 
+  function normalizeIdent(value){
+    return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  }
+
+  function canonicalAirportIdent(value){
+    let ident = normalizeIdent(value);
+    if(ident.length === 4 && ident.startsWith("K")){
+      ident = ident.slice(1);
+    }
+    return ident;
+  }
+
+  function isValidAirportIdent(value){
+    return /^[A-Z0-9]{3}$/.test(canonicalAirportIdent(value));
+  }
+
+  function aliasesFor(value){
+    const ident = canonicalAirportIdent(value);
+    if(!/^[A-Z0-9]{3}$/.test(ident)) return [];
+    return [ident, "K" + ident];
+  }
+
+  function ensureStore(){
+    if(!window.ZFW_ADJACENT_ARTCC_AIRPORTS){
+      window.ZFW_ADJACENT_ARTCC_AIRPORTS = { centers: {}, airports: {} };
+    }
+
+    window.ZFW_ADJACENT_ARTCC_AIRPORTS.centers = window.ZFW_ADJACENT_ARTCC_AIRPORTS.centers || {};
+    window.ZFW_ADJACENT_ARTCC_AIRPORTS.airports = window.ZFW_ADJACENT_ARTCC_AIRPORTS.airports || {};
+
+    Object.assign(window.ZFW_ADJACENT_ARTCC_AIRPORTS.centers, CENTER_INFO);
+
+    return window.ZFW_ADJACENT_ARTCC_AIRPORTS;
+  }
+
+  function addRecordToStore(identifier, centerCode, airportName){
+    const store = ensureStore();
+    const ident = canonicalAirportIdent(identifier);
+    const center = CENTER_INFO[centerCode];
+
+    if(!ident || !center) return null;
+
+    const record = {
+      center: centerCode,
+      name: String(airportName || ident).trim().toUpperCase(),
+      fdcd: center.fdcd
+    };
+
+    store.airports[ident] = record;
+    store.airports["K" + ident] = record;
+
+    return { ident, record };
+  }
+
+  function getAdjacentRecord(identifier){
+    const store = ensureStore();
+
+    for(const alias of aliasesFor(identifier)){
+      if(store.airports[alias]){
+        return {
+          ident: alias.startsWith("K") ? alias.slice(1) : alias,
+          record: store.airports[alias]
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function loadLocalRecords(){
+    try{
+      return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "{}");
+    }catch(error){
+      console.warn("Could not read local non-ZFW airport records.", error);
+      return {};
+    }
+  }
+
+  function saveLocalRecord(ident, record){
+    const all = loadLocalRecords();
+    all[ident] = record;
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(all));
+  }
+
+  function applyLocalRecords(){
+    const all = loadLocalRecords();
+
+    Object.keys(all).forEach(function(ident){
+      const record = all[ident];
+      if(record && record.center){
+        addRecordToStore(ident, record.center, record.name || ident);
+      }
+    });
+  }
+
+  async function saveSharedRecord(ident, record){
+    saveLocalRecord(ident, record);
+
+    if(window.ZFW_SAVE_SHARED_RECORD){
+      return window.ZFW_SAVE_SHARED_RECORD("non_zfw_airports", ident, {
+        identifier: ident,
+        center: record.center,
+        name: record.name || ident,
+        fdcd: record.fdcd || CENTER_INFO[record.center]?.fdcd || ""
+      });
+    }
+
+    return false;
+  }
+
+  function setText(id, value){
+    const el = document.getElementById(id);
+    if(el){
+      el.textContent = value || "—";
+      el.title = "";
+    }
+  }
+
+  function setHtml(id, value){
+    const el = document.getElementById(id);
+    if(el){
+      el.innerHTML = value || "—";
+      el.title = "";
+    }
+  }
+
+  function clearHighlights(){
+    document.querySelectorAll(".card").forEach(function(card){
+      card.classList.remove("nearest-wx-highlight", "highlight", "active", "warning", "primary");
+      card.style.borderColor = "";
+      card.style.boxShadow = "";
+    });
+  }
+
+  function clearMapForAdjacent(){
+    if(typeof window.currentMarker !== "undefined"){
+      window.currentMarker = null;
+    }
+
+    if(typeof window.drawMap === "function"){
+      window.drawMap();
+    }
+  }
+
+  function clearAdjacentAirportDisplayState(){
+    const mapCard = document.getElementById("mapCard");
+    if(mapCard){
+      mapCard.style.display = "";
+    }
+  }
+
+  function applyAdjacentAirportLookup(identifier){
+    const typed = normalizeIdent(identifier);
+    if(typed.length < 3) return false;
+
+    const result = getAdjacentRecord(typed);
+    if(!result) return false;
+
+    const record = result.record;
+    const centerCode = record.center || "";
+    const center = CENTER_INFO[centerCode] || ensureStore().centers[centerCode] || {};
+    const fdcd = record.fdcd || center.fdcd || "—";
+
+    clearHighlights();
+
+    setText("sector", "Outside ZFW");
+    setText("area", centerCode);
+    setText("approach", "Outside ZFW ARTCC");
+    setText("vscs", "—");
+    setHtml("contact", centerCode + " Flight Data Number: " + fdcd);
+    setText("hours", "—");
+    setText("airportName", record.name || result.ident);
+    setText("nearestWeather", "—");
+
+    const contactCard = document.getElementById("contactCard");
+    if(contactCard){
+      contactCard.classList.add("nearest-wx-highlight");
+      contactCard.style.borderColor = "#ffd166";
+      contactCard.style.boxShadow = "0 0 0 2px rgba(255,209,102,.45),0 0 16px rgba(255,209,102,.35)";
+    }
+
+    const status = document.getElementById("status");
+    if(status){
+      status.textContent = result.ident + ": " + centerCode + " FD/CD " + fdcd;
+      status.classList.remove("error", "not-found");
+      status.style.color = "#ffd166";
+    }
+
+    clearMapForAdjacent();
+
+    return true;
+  }
 
   function injectNonZfwStyles(){
     if(document.getElementById("nonZfwAirportStyles")) return;
@@ -16,7 +209,6 @@
     const style = document.createElement("style");
     style.id = "nonZfwAirportStyles";
     style.textContent = `
-
       #nonZfwAirportModal {
         position: fixed !important;
         inset: 0 !important;
@@ -125,219 +317,16 @@
     document.head.appendChild(style);
   }
 
-  function normalizeIdent(value){
-    return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-  }
-
-  function canonicalAirportIdent(value){
-    let ident = normalizeIdent(value);
-
-    if(ident.length === 4 && ident.startsWith("K")){
-      ident = ident.slice(1);
-    }
-
-    return ident;
-  }
-
-  function isValidAirportIdent(value){
-    const ident = canonicalAirportIdent(value);
-    return /^[A-Z0-9]{3}$/.test(ident);
-  }
-
-  function aliasesFor(value){
-    const ident = canonicalAirportIdent(value);
-    if(!/^[A-Z0-9]{3}$/.test(ident)) return [];
-    return [ident, "K" + ident];
-  }
-
-  function ensureStore(){
-    if(!window.ZFW_ADJACENT_ARTCC_AIRPORTS){
-      window.ZFW_ADJACENT_ARTCC_AIRPORTS = { centers: {}, airports: {} };
-    }
-
-    if(!window.ZFW_ADJACENT_ARTCC_AIRPORTS.centers){
-      window.ZFW_ADJACENT_ARTCC_AIRPORTS.centers = {};
-    }
-
-    if(!window.ZFW_ADJACENT_ARTCC_AIRPORTS.airports){
-      window.ZFW_ADJACENT_ARTCC_AIRPORTS.airports = {};
-    }
-
-    Object.assign(window.ZFW_ADJACENT_ARTCC_AIRPORTS.centers, CENTER_INFO);
-
-    return window.ZFW_ADJACENT_ARTCC_AIRPORTS;
-  }
-
-  function addRecordToStore(identifier, centerCode, airportName){
-    const store = ensureStore();
-    const ident = canonicalAirportIdent(identifier);
-    const center = CENTER_INFO[centerCode];
-
-    if(!ident || !center) return null;
-
-    const record = {
-      center: centerCode,
-      name: airportName || ident,
-      fdcd: center.fdcd
-    };
-
-    store.airports[ident] = record;
-    store.airports["K" + ident] = record;
-
-    return { ident, record };
-  }
-
-  function getAdjacentRecord(identifier){
-    const store = ensureStore();
-    for(const alias of aliasesFor(identifier)){
-      if(store.airports[alias]){
-        return {
-          ident: alias.startsWith("K") ? alias.slice(1) : alias,
-          record: store.airports[alias]
-        };
-      }
-    }
-
-    return null;
-  }
-
-  function loadLocalRecords(){
-    try{
-      return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "{}");
-    }catch(error){
-      console.warn("Could not read local non-ZFW airport records.", error);
-      return {};
-    }
-  }
-
-  function saveLocalRecord(ident, record){
-    const all = loadLocalRecords();
-    all[ident] = record;
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(all));
-  }
-
-  function applyLocalRecords(){
-    const all = loadLocalRecords();
-    Object.keys(all).forEach(function(ident){
-      const record = all[ident];
-      if(record && record.center){
-        addRecordToStore(ident, record.center, record.name || ident);
-      }
-    });
-  }
-
-  async function saveSharedRecord(ident, record){
-    saveLocalRecord(ident, record);
-
-    if(window.ZFW_SAVE_SHARED_RECORD){
-      return window.ZFW_SAVE_SHARED_RECORD("non_zfw_airports", ident, {
-        identifier: ident,
-        center: record.center,
-        name: record.name || ident,
-        fdcd: record.fdcd || CENTER_INFO[record.center]?.fdcd || ""
-      });
-    }
-
-    return false;
-  }
-
-  function setText(id, value){
-    const el = document.getElementById(id);
-    if(el){
-      el.textContent = value || "—";
-      el.title = "";
-    }
-  }
-
-  function setHtml(id, value){
-    const el = document.getElementById(id);
-    if(el){
-      el.innerHTML = value || "—";
-      el.title = "";
-    }
-  }
-
-  function clearHighlights(){
-    document.querySelectorAll(".card").forEach(function(card){
-      card.classList.remove("nearest-wx-highlight", "highlight", "active", "warning", "primary");
-      card.style.borderColor = "";
-      card.style.boxShadow = "";
-    });
-  }
-
-  function clearMapForAdjacent(){
-    window.currentMarker = null;
-
-    if(typeof window.drawMap === "function"){
-      window.drawMap();
-    } else {
-      const map = document.getElementById("zfwMap");
-      if(map){
-        const ctx = map.getContext("2d");
-        if(ctx){
-          ctx.clearRect(0, 0, map.width, map.height);
-        }
-      }
-    }
-  }
-
-  function clearAdjacentAirportDisplayState(){
-    const mapCard = document.getElementById("mapCard");
-    if(mapCard){
-      mapCard.style.display = "";
-    }
-  }
-
-  function applyAdjacentAirportLookup(identifier){
-    const typed = normalizeIdent(identifier);
-    if(typed.length < 3) return false;
-
-    const result = getAdjacentRecord(typed);
-    if(!result) return false;
-
-    const record = result.record;
-    const centerCode = record.center || "";
-    const center = CENTER_INFO[centerCode] || ensureStore().centers[centerCode] || {};
-    const fdcd = record.fdcd || center.fdcd || "—";
-
-    clearHighlights();
-
-    setText("sector", "Outside ZFW");
-    setText("area", centerCode);
-    setText("approach", "Outside ZFW ARTCC");
-    setText("vscs", "—");
-    setHtml("contact", `${centerCode} Flight Data Number: ${fdcd}`);
-    setText("hours", "—");
-    setText("airportName", record.name || result.ident);
-    setText("nearestWeather", "—");
-
-    const contactCard = document.getElementById("contactCard");
-    if(contactCard){
-      contactCard.classList.add("nearest-wx-highlight");
-      contactCard.style.borderColor = "#ffd166";
-      contactCard.style.boxShadow = "0 0 0 2px rgba(255,209,102,.45),0 0 16px rgba(255,209,102,.35)";
-    }
-
-    const status = document.getElementById("status");
-    if(status){
-      status.textContent = `${result.ident}: ${centerCode} FD/CD ${fdcd}`;
-      status.classList.remove("error", "not-found");
-      status.style.color = "#ffd166";
-    }
-
-    clearMapForAdjacent();
-
-    return true;
-  }
-
   function createModal(){
     injectNonZfwStyles();
+
     if(document.getElementById("nonZfwAirportModal")) return;
 
     const modal = document.createElement("div");
     modal.id = "nonZfwAirportModal";
     modal.className = "correction-modal";
     modal.setAttribute("aria-hidden", "true");
+
     modal.innerHTML = `
       <div class="correction-dialog">
         <h2>Add Non-ZFW Airport</h2>
@@ -381,6 +370,7 @@
     document.body.appendChild(modal);
 
     document.getElementById("nonZfwCancel").addEventListener("click", closeModal);
+
     modal.addEventListener("click", function(event){
       if(event.target === modal) closeModal();
     });
@@ -406,6 +396,7 @@
       }
 
       const saved = addRecordToStore(identifier, centerCode, airportName);
+
       if(!saved){
         message.textContent = "Could not save record.";
         message.className = "correction-message error";
@@ -434,20 +425,23 @@
 
   function openModal(){
     createModal();
+
     const modal = document.getElementById("nonZfwAirportModal");
+    const form = document.getElementById("nonZfwAirportForm");
     const input = document.getElementById("airportInput");
     const ident = document.getElementById("nonZfwIdentifier");
+    const message = document.getElementById("nonZfwMessage");
 
-    document.getElementById("nonZfwAirportForm").reset();
-    document.getElementById("nonZfwMessage").textContent = "";
-    document.getElementById("nonZfwMessage").className = "correction-message";
+    form.reset();
+    message.textContent = "";
+    message.className = "correction-message";
 
     if(input && ident && normalizeIdent(input.value).length >= 3){
       ident.value = canonicalAirportIdent(input.value);
     }
 
     modal.setAttribute("aria-hidden", "false");
-    setTimeout(function(){ ident && ident.focus(); }, 0);
+    setTimeout(function(){ if(ident) ident.focus(); }, 0);
   }
 
   function closeModal(){
@@ -462,31 +456,21 @@
       button = document.createElement("button");
       button.type = "button";
       button.id = "addNonZfwAirportButton";
-      button.textContent = "Add Non-ZFW Airport";
       button.className = "action-btn secondary";
+      button.textContent = "Add Non-ZFW Airport";
       button.addEventListener("click", openModal);
     }
 
     const bottomZone = document.getElementById("bottomCorrectionZone");
+
     if(bottomZone){
       bottomZone.appendChild(button);
-    } else {
+    }else{
       document.body.appendChild(button);
     }
 
     if(window.moveCorrectionButtonsToBottom){
       window.moveCorrectionButtonsToBottom();
-    }
-  }
-
-  function keepNonZfwButtonLast(){
-    createButton();
-
-    const bottomZone = document.getElementById("bottomCorrectionZone");
-    const button = document.getElementById("addNonZfwAirportButton");
-
-    if(bottomZone && button && button.parentElement === bottomZone){
-      bottomZone.appendChild(button);
     }
   }
 
@@ -496,16 +480,20 @@
     createModal();
     createButton();
 
-    setTimeout(keepNonZfwButtonLast, 250);
-    setTimeout(keepNonZfwButtonLast, 750);
-    setTimeout(keepNonZfwButtonLast, 1500);
-    setInterval(keepNonZfwButtonLast, 2500);
+    setTimeout(createButton, 250);
+    setTimeout(createButton, 750);
+    setTimeout(createButton, 1500);
 
     window.applyAdjacentAirportLookup = applyAdjacentAirportLookup;
     window.clearAdjacentAirportDisplayState = clearAdjacentAirportDisplayState;
+
     window.addNonZfwAirportRecord = function(identifier, centerCode, airportName){
       const saved = addRecordToStore(identifier, centerCode, airportName || canonicalAirportIdent(identifier));
-      if(saved) saveSharedRecord(saved.ident, saved.record);
+
+      if(saved){
+        saveSharedRecord(saved.ident, saved.record);
+      }
+
       return Boolean(saved);
     };
   }

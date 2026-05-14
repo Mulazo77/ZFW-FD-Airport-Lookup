@@ -236,10 +236,6 @@
     }
 
     .bottom-correction-zone button {
-      flex: 0 0 560px !important;
-      width: 560px !important;
-      min-width: 560px !important;
-      max-width: 560px !important;
       height: 42px !important;
       min-height: 42px !important;
       padding: 0 18px !important;
@@ -247,7 +243,7 @@
       border-radius: 14px !important;
       color: #ffffff !important;
       font-family: inherit !important;
-      font-size: 0.88rem !important;
+      font-size: 0.92rem !important;
       font-weight: 800 !important;
       line-height: 1 !important;
       text-align: center !important;
@@ -255,7 +251,6 @@
       align-items: center !important;
       justify-content: center !important;
       white-space: nowrap !important;
-      overflow: visible !important;
       box-sizing: border-box !important;
       cursor: pointer !important;
       box-shadow: none !important;
@@ -268,26 +263,6 @@
     .bottom-correction-zone button:nth-of-type(2),
     .bottom-correction-zone button:nth-of-type(3) {
       background: #64748b !important;
-    }
-
-    @media (max-width: 1750px) {
-      .bottom-correction-zone button {
-        flex-basis: 500px !important;
-        width: 500px !important;
-        min-width: 500px !important;
-        max-width: 500px !important;
-        font-size: 0.82rem !important;
-      }
-    }
-
-    @media (max-width: 1550px) {
-      .bottom-correction-zone button {
-        flex-basis: 460px !important;
-        width: 460px !important;
-        min-width: 460px !important;
-        max-width: 460px !important;
-        font-size: 0.78rem !important;
-      }
     }
   </style>
 
@@ -477,6 +452,8 @@
         "Add Non-ZFW Airport"
       ];
 
+      const orderedButtons = [];
+
       order.forEach(function (label) {
         const button = Array.from(document.querySelectorAll("button")).find(function (btn) {
           return (btn.textContent || "").trim() === label;
@@ -484,7 +461,45 @@
 
         if (button) {
           bottomZone.appendChild(button);
+          orderedButtons.push(button);
         }
+      });
+
+      normalizeBottomCorrectionButtons(orderedButtons);
+    }
+
+    function normalizeBottomCorrectionButtons(buttons) {
+      if (!buttons || buttons.length === 0) return;
+
+      buttons.forEach(function (button) {
+        button.style.width = "auto";
+        button.style.minWidth = "0";
+        button.style.maxWidth = "none";
+      });
+
+      requestAnimationFrame(function () {
+        let maxWidth = 0;
+
+        buttons.forEach(function (button) {
+          const needed = Math.ceil(button.scrollWidth + 36);
+          if (needed > maxWidth) maxWidth = needed;
+        });
+
+        if (maxWidth < 220) maxWidth = 220;
+
+        buttons.forEach(function (button) {
+          button.style.width = maxWidth + "px";
+          button.style.minWidth = maxWidth + "px";
+          button.style.maxWidth = maxWidth + "px";
+          button.style.height = "42px";
+          button.style.minHeight = "42px";
+          button.style.padding = "0 18px";
+          button.style.display = "inline-flex";
+          button.style.alignItems = "center";
+          button.style.justifyContent = "center";
+          button.style.whiteSpace = "nowrap";
+          button.style.boxSizing = "border-box";
+        });
       });
     }
 

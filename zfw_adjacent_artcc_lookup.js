@@ -49,13 +49,21 @@
     if(el) el.innerHTML = value || "—";
   }
 
-  function forceStatus(value, isWarning){
+  function clearHighlights(){
+    document.querySelectorAll(".card").forEach(function(card){
+      card.classList.remove("nearest-wx-highlight", "highlight", "active", "warning");
+      card.style.borderColor = "";
+      card.style.boxShadow = "";
+    });
+  }
+
+  function forceStatus(value){
     const status = document.getElementById("status");
     if(!status) return;
 
     status.textContent = value;
     status.classList.remove("error", "not-found");
-    status.style.color = isWarning ? "#ffd166" : "";
+    status.style.color = "#ffd166";
   }
 
   function clearMap(){
@@ -73,19 +81,23 @@
 
     lastAdjacentIdent = recordInfo.ident;
 
-    setText("sector", centerId);
-    setText("area", center.name || centerId);
+    clearHighlights();
+
+    setText("sector", "Outside ZFW");
+    setText("area", centerId);
     setText("approach", "Outside ZFW ARTCC");
     setText("appVscs", "—");
-    setHtml("appContact", `<strong>${centerId} Flight Data Clearance Delivery:</strong> ${fdcd}`);
+    setHtml("appContact", `${rec.name || recordInfo.ident} is in ${center.name || centerId} airspace. ${centerId} Flight Data Clearance Delivery: ${fdcd}`);
     setText("appHours", "0000-2359");
     setText("airportName", rec.name || recordInfo.ident);
     setText("nearestWeather", "—");
 
-    const nearestCard = document.getElementById("nearestWeatherCard") || document.getElementById("nearestWeather")?.closest(".card");
-    if(nearestCard) nearestCard.classList.remove("nearest-wx-highlight");
+    const contactCard = document.getElementById("appContact")?.closest(".card");
+    if(contactCard){
+      contactCard.classList.add("nearest-wx-highlight");
+    }
 
-    forceStatus(`${recordInfo.ident}: ${centerId} FD/CD ${fdcd}`, true);
+    forceStatus(`${recordInfo.ident}: ${centerId} FD/CD ${fdcd}`);
     clearMap();
   }
 
@@ -96,7 +108,6 @@
     const ident = normalizeIdent(input.value);
     if(!ident) return;
 
-    // If it exists in the ZFW dataset, let the normal app handle it.
     if(getZfwRecord(ident)) return;
 
     const adjacent = getAdjacentRecord(ident);
@@ -104,6 +115,7 @@
       setTimeout(function(){ showAdjacent(adjacent); }, 0);
       setTimeout(function(){ showAdjacent(adjacent); }, 150);
       setTimeout(function(){ showAdjacent(adjacent); }, 500);
+      setTimeout(function(){ showAdjacent(adjacent); }, 1000);
     }
   }
 
@@ -121,7 +133,7 @@
         const adjacent = getAdjacentRecord(lastAdjacentIdent);
         if(adjacent) showAdjacent(adjacent);
       }
-    }, 400);
+    }, 300);
   }
 
   if(document.readyState === "loading"){

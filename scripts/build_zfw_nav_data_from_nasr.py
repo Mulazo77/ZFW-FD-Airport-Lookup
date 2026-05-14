@@ -45,6 +45,7 @@ CSV_GROUPS = {
     "FIX": "Fix/Reporting Point/Waypoint",
     "NAV": "Navigation Aids",
     "WXL": "Weather Reporting Locations",
+    "APT": "Airports",
     "STAR": "Standard Terminal Arrival",
     "DP": "Departure Procedure",
 }
@@ -462,6 +463,74 @@ def load_supplemental_js_records(path: str, variable: str) -> Dict[str, Dict]:
     return clean
 
 
+
+ADJACENT_ARTCC_INFO = {
+    "ZHU": {"name": "Houston ARTCC", "fdcd": "281-230-5622"},
+    "ZAB": {"name": "Albuquerque ARTCC", "fdcd": "505-856-4561"},
+    "ZKC": {"name": "Kansas City ARTCC", "fdcd": "913-254-8508"},
+    "ZME": {"name": "Memphis ARTCC", "fdcd": "901-368-8453/8449"},
+}
+
+def detect_artcc(row: Dict[str, str]) -> str:
+    for key, value in row.items():
+        if not value:
+            continue
+        if re.search(r"(ARTCC|CENTER|CNTR|FACILITY|BOUNDARY|RESPONSIBLE)", key):
+            upper = value.strip().upper()
+            for artcc in ADJACENT_ARTCC_INFO:
+                if artcc in upper:
+                    return artcc
+            if "HOUSTON" in upper:
+                return "ZHU"
+            if "ALBUQUERQUE" in upper:
+                return "ZAB"
+            if "KANSAS CITY" in upper:
+                return "ZKC"
+            if "MEMPHIS" in upper:
+                return "ZME"
+    return ""
+
+def get_airport_ident(row: Dict[str, str]) -> str:
+    ident = first_value(row, [
+        r"^(ARPT|AIRPORT|LOCATION|LOC|SITE|FACILITY)_?(ID|IDENT|IDENTIFIER)$",
+        r"^FAA_?(ID|IDENT)$",
+        r"^IDENT$",
+        r"^ID$",
+    ])
+    ident = re.sub(r"[^A-Z0-9]", "", ident.upper())
+    return ident
+
+def get_airport_name(row: Dict[str, str], ident: str) -> str:
+    name = first_value(row, [
+        r"^(ARPT|AIRPORT|FACILITY|SITE).*NAME$",
+        r"^NAME$",
+        r"DESCRIPTION",
+    ])
+    return name.upper() if name else ident
+
+def build_adjacent_artcc_airports(rows: Iterable[Dict[str, str]]) -> Dict[str, Dict]:
+    airports: Dict[str, Dict] = {}
+    for row in rows:
+        ident = get_airport_ident(row)
+        if not ident:
+            continue
+        center = detect_artcc(row)
+        if center not in ADJACENT_ARTCC_INFO:
+            continue
+        name = get_airport_name(row, ident)
+        rec = {
+            "center": center,
+            "name": name,
+            "fdcd": ADJACENT_ARTCC_INFO[center]["fdcd"],
+        }
+        airports[ident] = rec
+        if len(ident) == 4 and ident.startswith("K"):
+            airports.setdefault(ident[1:], rec)
+        elif len(ident) == 3:
+            airports.setdefault("K" + ident, rec)
+    return airports
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cycle-page", default=os.environ.get("NASR_CYCLE_PAGE", "auto"))
@@ -477,11 +546,12 @@ def main() -> int:
     for key in sorted(urls):
         print(f"{key}: {urls[key]}")
 
-    zip_data = {group: fetch_bytes(url) for group, url in urls.items() if group in ["FIX", "NAV", "WXL", "STAR", "DP"]}
+    zip_data = {group: fetch_bytes(url) for group, url in urls.items() if group in ["FIX", "NAV", "WXL", "STAR", "DP", "APT"]}
 
     fix_rows = [row for _, row in read_zip_csvs(zip_data["FIX"])]
     nav_rows = [row for _, row in read_zip_csvs(zip_data["NAV"])]
     wx_rows = [row for _, row in read_zip_csvs(zip_data["WXL"])]
+    apt_rows = [row for _, row in read_zip_csvs(zip_data["APT"])] if "APT" in zip_data else []
 
     procedure_fix_names: set[str] = set()
     for group in ["STAR", "DP"]:
@@ -555,10 +625,21 @@ def main() -> int:
         print(f"WARNING: {len(missing_nearest_wx)} generated navpoint records are missing nearest_wx.")
         print("First 50 missing nearest_wx:", ", ".join(missing_nearest_wx[:50]))
 
+    if "UKW" in records:
+        records["UKW"]["nearest_wx"] = "0F2"
+
     Path(args.output).write_text(
         "// Generated from FAA NASR public FIX/NAV CSV data.\n"
         f"// Cycle page: {cycle_page}\n"
         "window.ZFW_NAV_DATA = " + json.dumps(records, separators=(",", ":"), ensure_ascii=False) + ";\n",
+        encoding="utf-8",
+    )
+
+        adjacent_airports = build_adjacent_artcc_airports(apt_rows)
+    Path("zfw_adjacent_artcc_airports.js").write_text(
+        "// Generated from FAA NASR public APT CSV data.\n"
+        f"// Cycle page: {cycle_page}\n"
+        "window.ZFW_ADJACENT_ARTCC_AIRPORTS = " + json.dumps({"centers": ADJACENT_ARTCC_INFO, "airports": adjacent_airports}, separators=(",", ":"), ensure_ascii=False) + ";\n",
         encoding="utf-8",
     )
 
@@ -576,6 +657,7 @@ def main() -> int:
         f"Cycle page: {cycle_page}",
         f"Generated navpoint records: {len(records)}",
         f"Generated weather stations: {len(stations)}",
+        f"Generated adjacent ARTCC airports: {len(adjacent_airports) if 'adjacent_airports' in locals() else 0}",
         f"Records missing nearest_wx: {len(missing_nearest_wx)}",
         "",
         "## Sample required checks",

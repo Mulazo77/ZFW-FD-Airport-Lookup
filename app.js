@@ -22,6 +22,7 @@ function dayAllowed(d,n){const x=n.getDay();if(d==="ALL")return true;if(d==="M-F
 function isOpen(hours){const w=parseHours(hours);if(!w.length)return false;const n=new Date(),cur=n.getHours()*60+n.getMinutes();return w.some(([d,s,e])=>{if(!dayAllowed(d,n))return false;const sm=militaryToMinutes(s),em=militaryToMinutes(e);return em>=sm?(cur>=sm&&cur<=em):(cur>=sm||cur<=em)})}
 function setText(id,v){els[id].textContent=v||"—"}
 function clearClasses(){Object.values(cards).forEach(c=>{c.classList.remove("primary");c.style.background="";c.style.borderColor="";c.style.boxShadow=""});Object.values(els).forEach(e=>{e.classList.remove("red-text","green-text","amber-text","cyan-text");e.style.color=""})}
+function highlightFdcsCard(id,color){const card=cards[id],el=els[id];if(!card||!el)return;if(color==="red"){card.style.borderColor="var(--red)";card.style.boxShadow="0 0 0 3px rgba(255,75,75,.28),0 0 18px rgba(255,75,75,.24)";el.classList.add("red-text");return}card.style.borderColor="var(--green)";card.style.boxShadow="0 0 0 3px rgba(65,209,125,.32),0 0 18px rgba(65,209,125,.30)";el.classList.add("green-text")}
 function updateZuluClock(){document.getElementById("zuluClock").textContent=new Date().toISOString().slice(11,19)+"Z"}
 function scheduleClear(){if(clearTimer)clearTimeout(clearTimer);clearTimer=setTimeout(()=>{input.value="";input.focus()},1000)}
 function updateResults(){
@@ -69,35 +70,22 @@ function updateResults(){
 
   els.airportName.classList.add("cyan-text");
 
-  if(areas.length){
-    const a=areas[0],color=areaColors[a]||"#17212b";
-    cards.area.style.background=color;
-    cards.area.style.borderColor=color;
-    els.area.style.color=a==="BYP"?"#111111":"#ffffff";
-  }
+  // AREA color association intentionally removed to reduce visual clutter.
+  // AREA now displays as plain text only.
 
   if(apps.length&&appIsOpen){
-    cards.approach.classList.add("primary");
-    cards.vscs.classList.add("primary");
-    cards.contact.classList.add("primary");
-    els.approach.classList.add("green-text");
-    els.vscs.classList.add("green-text");
-    els.contact.classList.add("green-text");
-    if(sectorValue.includes("APP OPEN"))els.sector.classList.add("red-text");
+    highlightFdcsCard("approach","green");
     statusEl.textContent=`${upper} found`;
     statusEl.style.color="var(--green)";
   }else{
-    if(sectors.length)cards.sector.classList.add("primary");
-    els.sector.classList.add("amber-text");
-    if(approachValue==="CLOSED")els.approach.classList.add("red-text");
-    if(vscsValue==="CLOSED")els.vscs.classList.add("red-text");
-    if(contactValue==="CLOSED")els.contact.classList.add("red-text");
     if(apps.length){
+      highlightFdcsCard("approach","red");
       statusEl.textContent=`${upper} found`;
       statusEl.style.color="var(--red)";
     }else{
+      if(sectors.length)highlightFdcsCard("sector","green");
       statusEl.textContent=`${upper} found`;
-      statusEl.style.color="var(--amber)";
+      statusEl.style.color="var(--green)";
     }
   }
 

@@ -185,8 +185,8 @@
     if(!card) return;
     if(on){
       card.classList.add("nearest-wx-highlight");
-      card.style.borderColor = "#ffd166";
-      card.style.boxShadow = "0 0 0 2px rgba(255,209,102,.45),0 0 16px rgba(255,209,102,.35)";
+      card.style.borderColor = "var(--green)";
+      card.style.boxShadow = "0 0 0 3px rgba(65,209,125,.32),0 0 18px rgba(65,209,125,.30)";
     } else {
       card.classList.remove("nearest-wx-highlight");
       card.style.borderColor = "";
@@ -198,7 +198,7 @@
     if(document.getElementById("nearestWxHighlightStyle")) return;
     const style = document.createElement("style");
     style.id = "nearestWxHighlightStyle";
-    style.textContent = `.nearest-wx-highlight{border-color:#ffd166!important;box-shadow:0 0 0 2px rgba(255,209,102,.45),0 0 16px rgba(255,209,102,.35)!important}.nearest-wx-highlight .card-title,.nearest-wx-highlight .card-value{color:#ffd166!important}`;
+    style.textContent = `.nearest-wx-highlight{border-color:var(--green)!important;box-shadow:0 0 0 3px rgba(65,209,125,.32),0 0 18px rgba(65,209,125,.30)!important}.nearest-wx-highlight .card-title,.nearest-wx-highlight .card-value{color:var(--green)!important}`;
     document.head.appendChild(style);
   }
 

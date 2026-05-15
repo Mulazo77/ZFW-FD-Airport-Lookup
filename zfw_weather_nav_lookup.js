@@ -11,7 +11,7 @@
 
   function isCompleteLookupIdent(ident){
     ident = normalizeIdent(ident);
-    return ident.length >= 3;
+    return /^[A-Z0-9]{3}$/.test(ident) || /^K[A-Z0-9]{3}$/.test(ident) || /^[A-Z0-9]{5}$/.test(ident);
   }
 
   function ensureAirportData(){
@@ -38,16 +38,37 @@
   function getRecord(ident){
     const records = ensureAirportData();
     ident = normalizeIdent(ident);
-    if(records[ident]) return records[ident];
+
+    if(!isCompleteLookupIdent(ident)) return null;
 
     if(ident.length === 4 && ident.startsWith("K")){
       const stripped = ident.slice(1);
-      if(records[stripped] && isAirportRecord(records[stripped])) return records[stripped];
+
+      if(records[ident] && isAirportRecord(records[ident])) return records[ident];
+      if(records[stripped]) return records[stripped];
+      if(records[ident]) return records[ident];
+
+      return null;
     }
+
     if(ident.length === 3){
       const kIdent = "K" + ident;
+
+      // Airport records win when a valid K-airport exists, which prevents
+      // airport/NAVAID duplicates like SPS from being treated as the navaid.
       if(records[kIdent] && isAirportRecord(records[kIdent])) return records[kIdent];
+
+      if(records[ident]) return records[ident];
+      if(records[kIdent]) return records[kIdent];
+
+      return null;
     }
+
+    if(ident.length === 5){
+      if(records[ident]) return records[ident];
+      return null;
+    }
+
     return null;
   }
 
@@ -284,14 +305,8 @@
       return;
     }
 
-    if(!isCompleteLookupIdent(typedIdent)){
-      output.textContent = "—";
-      output.title = "";
-      return;
-    }
-
     const record = getRecord(typedIdent);
-    if(record && isNavType(record)){ forceStatus((lastLookupIdent || "SEARCH") + " found"); clearAirportOutputsForNav(record); }
+    if(record && isNavType(record)){ forceStatus(typedIdent + " found"); clearAirportOutputsForNav(record); }
 
     const nearest = calculateNearest(record);
     if(!nearest){

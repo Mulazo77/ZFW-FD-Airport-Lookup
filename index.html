@@ -683,6 +683,11 @@
         return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
       }
 
+      function isCompleteOmicLookupInput(value) {
+        const ident = normalizeOmicIdent(value);
+        return /^[A-Z0-9]{3}$/.test(ident) || /^K[A-Z0-9]{3}$/.test(ident) || /^[A-Z0-9]{5}$/.test(ident);
+      }
+
       function isNavRecord(record) {
         const type = String((record && (record.record_type || record.type)) || "").toUpperCase();
         return ["NAVAID", "WAYPOINT", "FIX", "VOR", "VORTAC", "NDB"].includes(type);
@@ -971,6 +976,10 @@
         if (searched.length < 3) {
           clearOmicOutputs();
           setOmicStatus("Ready", "");
+          return;
+        }
+
+        if (!isCompleteOmicLookupInput(searched)) {
           return;
         }
 

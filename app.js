@@ -13,6 +13,7 @@ const input=document.getElementById("airportInput"),statusEl=document.getElement
 const els={sector:document.getElementById("sector"),area:document.getElementById("area"),approach:document.getElementById("approach"),vscs:document.getElementById("vscs"),contact:document.getElementById("contact"),hours:document.getElementById("hours"),airportName:document.getElementById("airportName")};
 const cards={sector:document.getElementById("sectorCard"),area:document.getElementById("areaCard"),approach:document.getElementById("approachCard"),vscs:document.getElementById("vscsCard"),contact:document.getElementById("contactCard"),hours:document.getElementById("hoursCard"),airportName:document.getElementById("airportNameCard")};
 function normalizeSearch(v){const s=(v||"").trim().toUpperCase();return(s.length===3&&/^[A-Z]+$/.test(s))?"K"+s:s}
+function isCompleteLookupInput(v){const s=String(v||"").trim().toUpperCase();return /^[A-Z0-9]{3}$/.test(s)||/^K[A-Z0-9]{3}$/.test(s)||/^[A-Z0-9]{5}$/.test(s)}
 function splitLines(items){return(!items||!items.length)?"":items.filter(Boolean).join("\n")}
 function formatSectorNameFirstToNumberFirst(value){const text=String(value||"").trim();const match=text.match(/^([A-Z]{2,4})\s+(\d{2})$/);return match?`${match[2]} ${match[1]}`:text}
 function splitSectorLines(items){return(!items||!items.length)?"":items.filter(Boolean).map(formatSectorNameFirstToNumberFirst).join("\n")}
@@ -28,10 +29,40 @@ function scheduleClear(){if(clearTimer)clearTimeout(clearTimer);clearTimer=setTi
 function updateResults(){
   const raw=input.value,upper=raw.toUpperCase();
   if(raw!==upper)input.value=upper;
+
+  const typed=upper.trim();
+
+  // Do not accept or process one- or two-character entries.
+  if(!typed)return;
+  if(typed.length<3){
+    statusEl.textContent="Ready";
+    statusEl.style.color="";
+    return;
+  }
+
+  if(!isCompleteLookupInput(typed)){
+    return;
+  }
+
   const query=normalizeSearch(upper);
   if(!query)return;
+
   const rec=records[query];
-  if(!rec){statusEl.textContent=`${upper} not found`;statusEl.style.color="var(--red)";return}
+
+  if(!rec){
+    if(window.applyAdjacentAirportLookup && window.applyAdjacentAirportLookup(upper)){
+      scheduleClear();
+      return;
+    }
+
+    statusEl.textContent=`${upper} not found`;
+    statusEl.style.color="var(--red)";
+    return;
+  }
+
+  if(window.clearAdjacentAirportDisplayState){
+    window.clearAdjacentAirportDisplayState();
+  }
 
   clearClasses();
 
@@ -71,7 +102,6 @@ function updateResults(){
   els.airportName.classList.add("cyan-text");
 
   // AREA color association intentionally removed to reduce visual clutter.
-  // AREA now displays as plain text only.
 
   if(apps.length&&appIsOpen){
     highlightFdcsCard("approach","green");

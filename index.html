@@ -286,56 +286,88 @@
     #omicPage {
       min-height: 100vh;
       display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      background: linear-gradient(135deg, #0f172a 0%, #156082 100%);
-      font-family: Arial, Helvetica, sans-serif;
-    }
-    .omic-card {
-      width: 100%;
-      max-width: 640px;
-      background: #ffffff;
-      border-radius: 18px;
-      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
-      padding: 32px;
-      text-align: center;
-    }
-    .omic-card h1 {
-      margin: 0 0 8px;
-      font-size: 1.75rem;
-      line-height: 1.2;
-      color: #0f172a;
-    }
-    .omic-card p {
-      margin: 0 0 24px;
-      color: #64748b;
-      font-size: 0.95rem;
-    }
-    .role-secondary-button:hover {
-      filter: brightness(0.94);
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
     }
 
-    .role-secondary-button {
-      margin-top: 20px;
+    .omic-app {
+      padding: clamp(10px, 1.6vw, 22px) clamp(10px, 1.8vw, 24px) 18px;
+    }
+
+    .omic-output-grid {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: clamp(8px, 1.4vw, 20px);
+      align-items: stretch;
+    }
+
+    .omic-output-grid .card {
+      min-height: 112px;
+    }
+
+    .omic-quick-header {
+      margin: 26px 0 14px;
+      text-align: center;
+      color: var(--cyan);
+      font-size: clamp(18px, 2vw, 24px);
+      font-weight: 900;
+      letter-spacing: 0.5px;
+    }
+
+    .omic-quick-buttons {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .omic-quick-buttons button,
+    .omic-secondary-button {
+      height: 46px;
       border: 0;
-      border-radius: 12px;
-      padding: 10px 14px;
+      border-radius: 14px;
       background: #64748b;
       color: #ffffff;
-      font-weight: 800;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 900;
       cursor: pointer;
     }
 
-    .wip-box {
-      margin-top: 18px;
-      border: 2px dashed #cbd5e1;
+    .omic-quick-buttons button:hover,
+    .omic-secondary-button:hover {
+      filter: brightness(1.08);
+    }
+
+    #omicWipBox {
+      display: none;
+      margin-top: 16px;
+      border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 28px;
-      background: #f8fafc;
-      color: #0f172a;
-      font-size: 1.2rem;
-      font-weight: 800;
+      background: var(--card);
+      color: var(--amber);
+      padding: 20px;
+      text-align: center;
+      font-size: 1.15rem;
+      font-weight: 900;
+    }
+
+    @media(max-width: 900px) {
+      .omic-output-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .omic-quick-buttons {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media(max-width: 520px) {
+      .omic-quick-buttons {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 
@@ -357,17 +389,55 @@
     </form>
   </section>
   <section id="omicPage">
-    <div class="omic-card">
-      <h1>OMIC View</h1>
-      <p>This section is reserved for OMIC-specific tools.</p>
+    <header class="topbar">
+      <div class="title">ZFW OMIC QUICK LOOKUP</div>
+      <div class="topbar-actions">
+        <div id="omicZuluClock" class="zulu-clock">--:--:--Z</div>
+        <button type="button" id="omicLogoutButton" class="logout-button">Logout</button>
+      </div>
+    </header>
 
-      <div class="wip-box">WIP</div>
+    <main class="omic-app">
+      <section class="search-row">
+        <label for="omicInput">AIRPORT/NAVAID/WAYPOINT</label>
+        <input id="omicInput" type="text" autocomplete="off" maxlength="5" />
+        <div id="omicStatus" class="status">Ready</div>
+      </section>
 
-      <button type="button" id="omicBackButton" class="role-secondary-button">Logout</button>
-      <button type="button" id="omicLogoutButton" class="role-secondary-button">Logout</button>
-    </div>
+      <section class="omic-output-grid">
+        <div id="omicSectorCard" class="card">
+          <div class="card-title">SECTOR TO CALL FOR CLEARANCE</div>
+          <div id="omicSector" class="card-value">—</div>
+        </div>
+
+        <div id="omicAppCard" class="card">
+          <div class="card-title">APPLICABLE APP / VSCS</div>
+          <div id="omicApp" class="card-value">—</div>
+        </div>
+
+        <div id="omicAreaCard" class="card">
+          <div class="card-title">AREA</div>
+          <div id="omicArea" class="card-value">—</div>
+        </div>
+
+        <div id="omicWeatherCard" class="card">
+          <div class="card-title">NEAREST WEATHER REPORTING STATION</div>
+          <div id="omicWeather" class="card-value">—</div>
+        </div>
+      </section>
+
+      <h2 class="omic-quick-header">Quick Reference</h2>
+
+      <section class="omic-quick-buttons" aria-label="OMIC quick reference buttons">
+        <button type="button" data-omic-wip="PIREPs">PIREPs</button>
+        <button type="button" data-omic-wip="CLEARANCE DELIVERY">CLEARANCE DELIVERY</button>
+        <button type="button" data-omic-wip="D-NOTAMs">D-NOTAMs</button>
+        <button type="button" data-omic-wip="ALNOT/INREQ">ALNOT/INREQ</button>
+      </section>
+
+      <div id="omicWipBox">WIP</div>
+    </main>
   </section>
-
 
   <div id="appContent">
     <header class="topbar">
@@ -472,6 +542,361 @@
   </script>
 
   <script>
+    (function () {
+      let omicInitialized = false;
+      let omicClearTimer = null;
+
+      function normalizeOmicIdent(value) {
+        return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      }
+
+      function isNavRecord(record) {
+        const type = String((record && (record.record_type || record.type)) || "").toUpperCase();
+        return ["NAVAID", "WAYPOINT", "FIX", "VOR", "VORTAC", "NDB"].includes(type);
+      }
+
+      function isAirportRecord(record) {
+        if (!record) return false;
+        const type = String(record.record_type || record.type || "").toUpperCase();
+        if (type === "AIRPORT") return true;
+        if (isNavRecord(record)) return false;
+        return Boolean(
+          (Array.isArray(record.sectors) && record.sectors.length) ||
+          (Array.isArray(record.apps) && record.apps.length) ||
+          (Array.isArray(record.contacts) && record.contacts.length) ||
+          (Array.isArray(record.hours) && record.hours.length)
+        );
+      }
+
+      function splitOutput(items) {
+        return (!items || !items.length) ? "—" : items.filter(Boolean).join("\\n");
+      }
+
+      function parseHours(hours) {
+        const h = String(hours || "").trim().toUpperCase();
+        const times = [...h.matchAll(/(\\d{4})-(\\d{4})/g)].map((match) => [match[1], match[2]]);
+        if (!times.length) return [];
+
+        let days = "ALL";
+        if (h.includes("M-F")) days = "M-F";
+        else if (h.includes("SU") && h.indexOf("SU") < h.indexOf(times[0][0])) days = "SU";
+
+        const windows = [[days, times[0][0], times[0][1]]];
+        if (times.length > 1) windows.push([h.includes("SU") ? "SU" : "ALL", times[1][0], times[1][1]]);
+
+        return windows;
+      }
+
+      function militaryToMinutes(time) {
+        const hours = Number(time.slice(0, 2));
+        const minutes = Number(time.slice(2));
+        return hours === 24 ? 1440 : hours * 60 + minutes;
+      }
+
+      function dayAllowed(days, now) {
+        const day = now.getDay();
+        if (days === "ALL") return true;
+        if (days === "M-F") return day >= 1 && day <= 5;
+        if (days === "SU") return day === 0;
+        return true;
+      }
+
+      function isOpen(hours) {
+        const windows = parseHours(hours);
+        if (!windows.length) return false;
+
+        const now = new Date();
+        const current = now.getHours() * 60 + now.getMinutes();
+
+        return windows.some(([days, start, end]) => {
+          if (!dayAllowed(days, now)) return false;
+
+          const startMinutes = militaryToMinutes(start);
+          const endMinutes = militaryToMinutes(end);
+
+          return endMinutes >= startMinutes
+            ? current >= startMinutes && current <= endMinutes
+            : current >= startMinutes || current <= endMinutes;
+        });
+      }
+
+      function toRad(deg) {
+        return deg * Math.PI / 180;
+      }
+
+      function distanceNm(lat1, lon1, lat2, lon2) {
+        const earthRadiusNm = 3440.065;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const rLat1 = toRad(lat1);
+        const rLat2 = toRad(lat2);
+
+        const h =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos(rLat1) * Math.cos(rLat2) * Math.sin(dLon / 2) ** 2;
+
+        return 2 * earthRadiusNm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+      }
+
+      function nearestWeather(record) {
+        if (!record) return "—";
+
+        if (record.nearest_wx) {
+          return normalizeOmicIdent(record.nearest_wx);
+        }
+
+        if (!Number.isFinite(Number(record.lat)) || !Number.isFinite(Number(record.lon))) {
+          return "—";
+        }
+
+        const stations = window.ZFW_WEATHER_STATIONS || [];
+        let best = null;
+
+        stations.forEach((station) => {
+          if (!Number.isFinite(Number(station.lat)) || !Number.isFinite(Number(station.lon))) return;
+
+          const nm = distanceNm(Number(record.lat), Number(record.lon), Number(station.lat), Number(station.lon));
+          if (!best || nm < best.distanceNm) {
+            best = { id: normalizeOmicIdent(station.id), distanceNm: nm };
+          }
+        });
+
+        return best ? best.id : "—";
+      }
+
+      function getAdjacentRecord(ident) {
+        const store = window.ZFW_ADJACENT_ARTCC_AIRPORTS || {};
+        const airports = store.airports || {};
+        const clean = normalizeOmicIdent(ident);
+        const aliases = [];
+
+        if (/^K[A-Z0-9]{3}$/.test(clean)) {
+          aliases.push(clean, clean.slice(1));
+        } else if (/^[A-Z0-9]{3}$/.test(clean)) {
+          aliases.push(clean, "K" + clean);
+        }
+
+        for (const alias of aliases) {
+          if (airports[alias]) {
+            return {
+              ident: alias.startsWith("K") ? alias.slice(1) : alias,
+              record: airports[alias]
+            };
+          }
+        }
+
+        return null;
+      }
+
+      function getOmicRecord(input) {
+        const ident = normalizeOmicIdent(input);
+        const records = (window.AIRPORT_DATA && window.AIRPORT_DATA.records) || {};
+        const navSources = Object.assign(
+          {},
+          window.ZFW_NAV_DATA || {},
+          window.ZFW_SUPPLEMENTAL_NAVAIDS || {},
+          window.ZFW_SUPPLEMENTAL_WAYPOINTS || {}
+        );
+
+        if (!ident || ident.length < 3) return null;
+
+        if (/^K[A-Z0-9]{3}$/.test(ident)) {
+          const stripped = ident.slice(1);
+          if (records[ident] && isAirportRecord(records[ident])) return { ident: stripped, record: records[ident], adjacent: false };
+          if (records[stripped]) return { ident: stripped, record: records[stripped], adjacent: false };
+          if (navSources[stripped]) return { ident: stripped, record: navSources[stripped], adjacent: false };
+        }
+
+        if (/^[A-Z0-9]{3}$/.test(ident)) {
+          const kIdent = "K" + ident;
+          if (records[kIdent] && isAirportRecord(records[kIdent])) return { ident, record: records[kIdent], adjacent: false };
+          if (records[ident] && isAirportRecord(records[ident])) return { ident, record: records[ident], adjacent: false };
+          if (records[ident]) return { ident, record: records[ident], adjacent: false };
+          if (navSources[ident]) return { ident, record: navSources[ident], adjacent: false };
+
+          const adjacent = getAdjacentRecord(ident);
+          if (adjacent) return { ident: adjacent.ident, record: adjacent.record, adjacent: true };
+        }
+
+        if (records[ident]) return { ident, record: records[ident], adjacent: false };
+        if (navSources[ident]) return { ident, record: navSources[ident], adjacent: false };
+
+        return null;
+      }
+
+      function setOmicText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value || "—";
+      }
+
+      function setOmicStatus(text, color) {
+        const status = document.getElementById("omicStatus");
+        if (!status) return;
+
+        status.textContent = text;
+        status.style.color = color || "";
+      }
+
+      function clearOmicOutputs() {
+        setOmicText("omicSector", "—");
+        setOmicText("omicApp", "—");
+        setOmicText("omicArea", "—");
+        setOmicText("omicWeather", "—");
+      }
+
+      function scheduleOmicClear() {
+        const input = document.getElementById("omicInput");
+        if (!input) return;
+
+        if (omicClearTimer) clearTimeout(omicClearTimer);
+        omicClearTimer = setTimeout(() => {
+          input.value = "";
+          input.focus();
+        }, 1000);
+      }
+
+      function runOmicLookup() {
+        const input = document.getElementById("omicInput");
+        if (!input) return;
+
+        const raw = input.value;
+        const upper = raw.toUpperCase();
+
+        if (raw !== upper) input.value = upper;
+
+        const searched = normalizeOmicIdent(upper);
+
+        if (!searched) return;
+
+        if (searched.length < 3) {
+          clearOmicOutputs();
+          setOmicStatus("Ready", "");
+          return;
+        }
+
+        const result = getOmicRecord(searched);
+
+        if (!result) {
+          clearOmicOutputs();
+          setOmicStatus(searched + " not found", "var(--red)");
+          scheduleOmicClear();
+          return;
+        }
+
+        const record = result.record || {};
+        const sectors = record.sectors || [];
+        const areas = record.areas || [];
+        const apps = record.apps || [];
+        const vscs = record.vscs || [];
+        const hours = record.hours || [];
+
+        if (result.adjacent) {
+          const center = record.center || "—";
+          setOmicText("omicSector", "Outside ZFW");
+          setOmicText("omicApp", center + " Flight Data Number: " + (record.fdcd || "—"));
+          setOmicText("omicArea", center);
+          setOmicText("omicWeather", "—");
+          setOmicStatus(searched + " found", "var(--amber)");
+          scheduleOmicClear();
+          return;
+        }
+
+        setOmicText("omicSector", splitOutput(sectors));
+
+        if (apps.length) {
+          if (isOpen(hours[0] || "")) {
+            const appLine = splitOutput(apps);
+            const vscsLine = vscs.length ? "VSCS: " + splitOutput(vscs) : "";
+            setOmicText("omicApp", [appLine, vscsLine].filter(Boolean).join("\\n"));
+          } else {
+            setOmicText("omicApp", "CLOSED");
+          }
+        } else {
+          setOmicText("omicApp", "—");
+        }
+
+        setOmicText("omicArea", splitOutput(areas));
+        setOmicText("omicWeather", nearestWeather(record));
+        setOmicStatus(searched + " found", "var(--amber)");
+
+        scheduleOmicClear();
+      }
+
+      function updateOmicZuluClock() {
+        const clock = document.getElementById("omicZuluClock");
+        if (clock) clock.textContent = new Date().toISOString().slice(11, 19) + "Z";
+      }
+
+      function initOmicEvents() {
+        if (omicInitialized) return;
+        omicInitialized = true;
+
+        const input = document.getElementById("omicInput");
+        if (input) {
+          input.addEventListener("input", runOmicLookup);
+          input.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+              runOmicLookup();
+              input.select();
+              event.preventDefault();
+            }
+          });
+        }
+
+        document.querySelectorAll("[data-omic-wip]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            const box = document.getElementById("omicWipBox");
+            if (box) {
+              box.textContent = button.getAttribute("data-omic-wip") + " — WIP";
+              box.style.display = "block";
+            }
+          });
+        });
+
+        setInterval(updateOmicZuluClock, 1000);
+        updateOmicZuluClock();
+      }
+
+      window.ZFW_INIT_OMIC_VIEW = function () {
+        const input = document.getElementById("omicInput");
+        const status = document.getElementById("omicStatus");
+
+        if (status) {
+          status.textContent = "Loading OMIC database...";
+          status.style.color = "var(--amber)";
+        }
+
+        const load = typeof loadZfwAppScriptsAfterLogin === "function"
+          ? loadZfwAppScriptsAfterLogin()
+          : Promise.resolve();
+
+        load
+          .then(function () {
+            initOmicEvents();
+            clearOmicOutputs();
+
+            if (status) {
+              status.textContent = "Ready";
+              status.style.color = "";
+            }
+
+            if (input) {
+              input.focus();
+            }
+          })
+          .catch(function (error) {
+            console.error(error);
+            if (status) {
+              status.textContent = "OMIC database failed to load";
+              status.style.color = "var(--red)";
+            }
+          });
+      };
+    })();
+  </script>
+
+
+  <script>
     const SESSION_KEY = "zfwAirportLocatorLoggedIn";
     const SESSION_ROLE_KEY = "zfwAirportLocatorRole";
 
@@ -482,7 +907,6 @@
     const loginError = document.getElementById("loginError");
     const logoutButton = document.getElementById("logoutButton");
     const omicLogoutButton = document.getElementById("omicLogoutButton");
-    const omicBackButton = document.getElementById("omicBackButton");
 
     function hideAllPages() {
       loginPage.style.display = "none";
@@ -509,7 +933,11 @@
 
     function showOmic() {
       hideAllPages();
-      omicPage.style.display = "flex";
+      omicPage.style.display = "block";
+
+      if (typeof window.ZFW_INIT_OMIC_VIEW === "function") {
+        window.ZFW_INIT_OMIC_VIEW();
+      }
     }
 
     function showLogin() {
@@ -578,11 +1006,6 @@
 
     logoutButton.addEventListener("click", logout);
     omicLogoutButton.addEventListener("click", logout);
-
-    if (omicBackButton) {
-      omicBackButton.textContent = "Logout";
-      omicBackButton.addEventListener("click", logout);
-    }
   </script>
 
 </body>

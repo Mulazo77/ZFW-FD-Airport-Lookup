@@ -493,7 +493,7 @@
         </div>
 
         <div id="omicAppCard" class="card">
-          <div class="card-title">APPLICABLE APP / VSCS</div>
+          <div class="card-title">APPROACH TO CALL FOR CLEARANCE</div>
           <div id="omicApp" class="card-value">—</div>
         </div>
 
@@ -541,7 +541,7 @@
       <section class="grid">
         <div id="sectorCard" class="card"><div class="card-title">SECTOR</div><div id="sector" class="card-value">—</div></div>
         <div id="areaCard" class="card"><div class="card-title">AREA</div><div id="area" class="card-value">—</div></div>
-        <div id="approachCard" class="card"><div class="card-title">APPROACH</div><div id="approach" class="card-value">—</div></div>
+        <div id="approachCard" class="card"><div class="card-title">APPROACH TO CALL FOR CLEARANCE</div><div id="approach" class="card-value">—</div></div>
         <div id="vscsCard" class="card"><div class="card-title">APP VSCS</div><div id="vscs" class="card-value">—</div></div>
         <div id="contactCard" class="card"><div class="card-title">APP CONTACT</div><div id="contact" class="card-value">—</div></div>
         <div id="hoursCard" class="card"><div class="card-title">APP HOURS</div><div id="hours" class="card-value">—</div></div>
@@ -653,6 +653,18 @@
 
       function splitOutput(items) {
         return (!items || !items.length) ? "—" : items.filter(Boolean).join("\n");
+      }
+
+      function formatSectorNameFirstToNumberFirst(value) {
+        const text = String(value || "").trim();
+        const match = text.match(/^([A-Z]{2,4})\s+(\d{2})$/);
+        return match ? match[2] + " " + match[1] : text;
+      }
+
+      function splitSectorOutput(items) {
+        return (!items || !items.length)
+          ? "—"
+          : items.filter(Boolean).map(formatSectorNameFirstToNumberFirst).join("\n");
       }
 
       function parseHours(hours) {
@@ -928,6 +940,7 @@
         const areas = record.areas || [];
         const apps = record.apps || [];
         const vscs = record.vscs || [];
+        const contacts = record.contacts || [];
         const hours = record.hours || [];
         const navRecord = isNavRecord(record);
 
@@ -943,13 +956,14 @@
           return;
         }
 
-        setOmicText("omicSector", splitOutput(sectors));
+        setOmicText("omicSector", splitSectorOutput(sectors));
 
         if (apps.length) {
           if (isOpen(hours[0] || "")) {
             const appLine = splitOutput(apps);
             const vscsLine = vscs.length ? "VSCS: " + splitOutput(vscs) : "";
-            setOmicText("omicApp", [appLine, vscsLine].filter(Boolean).join("\n"));
+            const phoneLine = contacts.length ? "CD Phone: " + splitOutput(contacts) : "";
+            setOmicText("omicApp", [appLine, vscsLine, phoneLine].filter(Boolean).join("\n"));
             highlightOmicBox("omicApp", "green");
           } else {
             setOmicText("omicApp", "CLOSED");

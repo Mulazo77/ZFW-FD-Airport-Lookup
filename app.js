@@ -14,6 +14,8 @@ const els={sector:document.getElementById("sector"),area:document.getElementById
 const cards={sector:document.getElementById("sectorCard"),area:document.getElementById("areaCard"),approach:document.getElementById("approachCard"),vscs:document.getElementById("vscsCard"),contact:document.getElementById("contactCard"),hours:document.getElementById("hoursCard"),airportName:document.getElementById("airportNameCard")};
 function normalizeSearch(v){const s=(v||"").trim().toUpperCase();return(s.length===3&&/^[A-Z]+$/.test(s))?"K"+s:s}
 function splitLines(items){return(!items||!items.length)?"":items.filter(Boolean).join("\n")}
+function formatSectorNameFirstToNumberFirst(value){const text=String(value||"").trim();const match=text.match(/^([A-Z]{2,4})\s+(\d{2})$/);return match?`${match[2]} ${match[1]}`:text}
+function splitSectorLines(items){return(!items||!items.length)?"":items.filter(Boolean).map(formatSectorNameFirstToNumberFirst).join("\n")}
 function parseHours(hours){const h=(hours||"").trim().toUpperCase();const times=[...h.matchAll(/(\d{4})-(\d{4})/g)].map(m=>[m[1],m[2]]);if(!times.length)return[];let d="ALL";if(h.includes("M-F"))d="M-F";else if(h.includes("SU")&&h.indexOf("SU")<h.indexOf(times[0][0]))d="SU";const w=[[d,times[0][0],times[0][1]]];if(times.length>1)w.push([h.includes("SU")?"SU":"ALL",times[1][0],times[1][1]]);return w}
 function militaryToMinutes(t){const h=Number(t.slice(0,2)),m=Number(t.slice(2));return h===24?1440:h*60+m}
 function dayAllowed(d,n){const x=n.getDay();if(d==="ALL")return true;if(d==="M-F")return x>=1&&x<=5;if(d==="SU")return x===0;return true}
@@ -22,7 +24,87 @@ function setText(id,v){els[id].textContent=v||"—"}
 function clearClasses(){Object.values(cards).forEach(c=>{c.classList.remove("primary");c.style.background="";c.style.borderColor="";c.style.boxShadow=""});Object.values(els).forEach(e=>{e.classList.remove("red-text","green-text","amber-text","cyan-text");e.style.color=""})}
 function updateZuluClock(){document.getElementById("zuluClock").textContent=new Date().toISOString().slice(11,19)+"Z"}
 function scheduleClear(){if(clearTimer)clearTimeout(clearTimer);clearTimer=setTimeout(()=>{input.value="";input.focus()},1000)}
-function updateResults(){const raw=input.value,upper=raw.toUpperCase();if(raw!==upper)input.value=upper;const query=normalizeSearch(upper);if(!query)return;const rec=records[query];if(!rec){statusEl.textContent=`${upper} not found`;statusEl.style.color="var(--red)";return}clearClasses();const sectors=rec.sectors||[],areas=rec.areas||[],apps=rec.apps||[],vscs=rec.vscs||[],contacts=rec.contacts||[],hours=rec.hours||[];const appIsOpen=apps.length>0&&isOpen(hours[0]||"");let sectorValue=splitLines(sectors);if(appIsOpen&&sectorValue)sectorValue+="\nAPP OPEN";let vscsValue="",contactValue="";if(apps.length){vscsValue=appIsOpen?splitLines(vscs):"CLOSED";contactValue=appIsOpen?splitLines(contacts):"CLOSED"}setText("sector",sectorValue);setText("area",splitLines(areas));setText("approach",splitLines(apps));setText("vscs",vscsValue);setText("contact",contactValue);setText("hours",splitLines(hours));setText("airportName",rec.airport_name||"Name not found");els.airportName.classList.add("cyan-text");if(areas.length){const a=areas[0],color=areaColors[a]||"#17212b";cards.area.style.background=color;cards.area.style.borderColor=color;els.area.style.color=a==="BYP"?"#111111":"#ffffff"}if(apps.length&&appIsOpen){cards.vscs.classList.add("primary");cards.contact.classList.add("primary");els.vscs.classList.add("green-text");els.contact.classList.add("green-text");if(sectorValue.includes("APP OPEN"))els.sector.classList.add("red-text");statusEl.textContent=`${upper} found`;statusEl.style.color="var(--green)"}else{if(sectors.length)cards.sector.classList.add("primary");els.sector.classList.add("amber-text");if(vscsValue==="CLOSED")els.vscs.classList.add("red-text");if(contactValue==="CLOSED")els.contact.classList.add("red-text");if(apps.length){statusEl.textContent=`${upper} found`;statusEl.style.color="var(--red)"}else{statusEl.textContent=`${upper} found`;statusEl.style.color="var(--amber)"}}currentMarker={ident:query,lat:rec.lat,lon:rec.lon};drawMap();scheduleClear()}
+function updateResults(){
+  const raw=input.value,upper=raw.toUpperCase();
+  if(raw!==upper)input.value=upper;
+  const query=normalizeSearch(upper);
+  if(!query)return;
+  const rec=records[query];
+  if(!rec){statusEl.textContent=`${upper} not found`;statusEl.style.color="var(--red)";return}
+
+  clearClasses();
+
+  const sectors=rec.sectors||[],areas=rec.areas||[],apps=rec.apps||[],vscs=rec.vscs||[],contacts=rec.contacts||[],hours=rec.hours||[];
+  const appIsOpen=apps.length>0&&isOpen(hours[0]||"");
+
+  let sectorValue=splitSectorLines(sectors);
+  if(appIsOpen&&sectorValue)sectorValue+="\nAPP OPEN";
+
+  let approachValue="";
+  let vscsValue="";
+  let contactValue="";
+
+  if(apps.length){
+    if(appIsOpen){
+      const appLine=splitLines(apps);
+      const vscsLine=vscs.length?"VSCS: "+splitLines(vscs):"";
+      const phoneLine=contacts.length?"CD Phone: "+splitLines(contacts):"";
+      approachValue=[appLine,vscsLine,phoneLine].filter(Boolean).join("\n");
+      vscsValue=splitLines(vscs);
+      contactValue=splitLines(contacts);
+    }else{
+      approachValue="CLOSED";
+      vscsValue="CLOSED";
+      contactValue="CLOSED";
+    }
+  }
+
+  setText("sector",sectorValue);
+  setText("area",splitLines(areas));
+  setText("approach",approachValue);
+  setText("vscs",vscsValue);
+  setText("contact",contactValue);
+  setText("hours",splitLines(hours));
+  setText("airportName",rec.airport_name||"Name not found");
+
+  els.airportName.classList.add("cyan-text");
+
+  if(areas.length){
+    const a=areas[0],color=areaColors[a]||"#17212b";
+    cards.area.style.background=color;
+    cards.area.style.borderColor=color;
+    els.area.style.color=a==="BYP"?"#111111":"#ffffff";
+  }
+
+  if(apps.length&&appIsOpen){
+    cards.approach.classList.add("primary");
+    cards.vscs.classList.add("primary");
+    cards.contact.classList.add("primary");
+    els.approach.classList.add("green-text");
+    els.vscs.classList.add("green-text");
+    els.contact.classList.add("green-text");
+    if(sectorValue.includes("APP OPEN"))els.sector.classList.add("red-text");
+    statusEl.textContent=`${upper} found`;
+    statusEl.style.color="var(--green)";
+  }else{
+    if(sectors.length)cards.sector.classList.add("primary");
+    els.sector.classList.add("amber-text");
+    if(approachValue==="CLOSED")els.approach.classList.add("red-text");
+    if(vscsValue==="CLOSED")els.vscs.classList.add("red-text");
+    if(contactValue==="CLOSED")els.contact.classList.add("red-text");
+    if(apps.length){
+      statusEl.textContent=`${upper} found`;
+      statusEl.style.color="var(--red)";
+    }else{
+      statusEl.textContent=`${upper} found`;
+      statusEl.style.color="var(--amber)";
+    }
+  }
+
+  currentMarker={ident:query,lat:rec.lat,lon:rec.lon};
+  drawMap();
+  scheduleClear()
+}
 function pointInPolygon(point, polygon) {
   const [x, y] = point;
   let inside = false;

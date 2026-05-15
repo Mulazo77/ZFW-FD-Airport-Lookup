@@ -193,7 +193,7 @@
 
     const status = document.getElementById("status");
     if(status){
-      status.textContent = result.ident + ": " + centerCode + " FD/CD " + fdcd;
+      status.textContent = result.ident + " found";
       status.classList.remove("error", "not-found");
       status.style.color = "#ffd166";
     }

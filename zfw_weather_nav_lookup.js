@@ -209,7 +209,7 @@
 
   function clearAirportOutputsForNav(record){
     if(!record || !isNavType(record)) return;
-    ["sector","area","approach","vscs","contact","hours"].forEach(id => {
+    ["sector","area","approach","appVscs","appContact","appHours"].forEach(id => {
       const el = document.getElementById(id);
       if(el){ el.textContent = "—"; el.innerHTML = "—"; el.title = ""; }
       const card = el ? el.closest(".card") : null;
@@ -242,7 +242,7 @@
     lastFoundRecord = record || null;
 
     if(isNavType(record)){
-      forceStatus((ident || lastLookupIdent || "Found") + ": Found");
+      forceStatus((ident || lastLookupIdent || "SEARCH") + " found");
       clearAirportOutputsForNav(record);
       setNearestHighlight(true);
       hideMapForNav(record);
@@ -258,7 +258,7 @@
     output.textContent = lastDisplayedWx;
     output.title = lastDisplayedTitle || "";
     if(lastFoundWasNav){
-      forceStatus("Found");
+      forceStatus((lastLookupIdent || "SEARCH") + " found");
       clearAirportOutputsForNav(lastFoundRecord);
       setNearestHighlight(true);
       hideMapForNav(lastFoundRecord);
@@ -274,7 +274,7 @@
     const typedIdent = normalizeIdent(input.value);
     if(!typedIdent){
       restoreLast(output);
-      if(lastFoundWasNav && statusLooksBad()) forceStatus("Found");
+      if(lastFoundWasNav && statusLooksBad()) forceStatus((lastLookupIdent || "SEARCH") + " found");
       return;
     }
 
@@ -291,7 +291,7 @@
     }
 
     const record = getRecord(typedIdent);
-    if(record && isNavType(record)){ forceStatus("Found"); clearAirportOutputsForNav(record); }
+    if(record && isNavType(record)){ forceStatus((lastLookupIdent || "SEARCH") + " found"); clearAirportOutputsForNav(record); }
 
     const nearest = calculateNearest(record);
     if(!nearest){
@@ -328,7 +328,7 @@
       if(typedIdent) updateNearestWeather();
       else {
         if(lastDisplayedWx && (!outText || outText === "—")) restoreLast(output);
-        if(lastFoundWasNav && statusLooksBad()) forceStatus("Found");
+        if(lastFoundWasNav && statusLooksBad()) forceStatus((lastLookupIdent || "SEARCH") + " found");
         if(lastFoundWasNav) clearAirportOutputsForNav(lastFoundRecord);
       }
     }, 250);

@@ -355,23 +355,24 @@
     }
 
 
+    /* OMIC sizing and highlight behavior */
     #omicInput {
-      width: clamp(190px, 24vw, 300px) !important;
-      height: 58px !important;
-      min-height: 58px !important;
-      padding: 8px 14px !important;
-      font-size: 1.55rem !important;
+      width: clamp(180px, 22vw, 280px) !important;
+      height: 52px !important;
+      min-height: 52px !important;
+      padding: 8px 12px !important;
+      font-size: 1.35rem !important;
       font-weight: 900 !important;
       letter-spacing: 1px !important;
     }
 
     #omicStatus {
-      font-size: 1.15rem !important;
+      font-size: 1.05rem !important;
       font-weight: 900 !important;
     }
 
     #omicPage .search-row label {
-      font-size: 1.05rem !important;
+      font-size: 1rem !important;
       font-weight: 900 !important;
     }
 
@@ -432,18 +433,6 @@
       .omic-quick-buttons button {
         font-size: 0.72rem !important;
         padding: 0 6px !important;
-      }
-    }
-
-    @media(max-width: 1050px) {
-      .omic-quick-buttons {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-      }
-    }
-
-    @media(max-width: 700px) {
-      .omic-quick-buttons {
-        grid-template-columns: 1fr !important;
       }
     }
 
@@ -663,12 +652,14 @@
       }
 
       function splitOutput(items) {
-        return (!items || !items.length) ? "—" : items.filter(Boolean).join("\\n");
+        return (!items || !items.length) ? "—" : items.filter(Boolean).join("\n");
       }
 
       function parseHours(hours) {
         const h = String(hours || "").trim().toUpperCase();
-        const times = [...h.matchAll(/(\\d{4})-(\\d{4})/g)].map((match) => [match[1], match[2]]);
+        const times = Array.from(h.matchAll(/(\d{4})-(\d{4})/g)).map(function (match) {
+          return [match[1], match[2]];
+        });
         if (!times.length) return [];
 
         let days = "ALL";
@@ -702,7 +693,11 @@
         const now = new Date();
         const current = now.getHours() * 60 + now.getMinutes();
 
-        return windows.some(([days, start, end]) => {
+        return windows.some(function (windowRange) {
+          const days = windowRange[0];
+          const start = windowRange[1];
+          const end = windowRange[2];
+
           if (!dayAllowed(days, now)) return false;
 
           const startMinutes = militaryToMinutes(start);
@@ -726,8 +721,9 @@
         const rLat2 = toRad(lat2);
 
         const h =
-          Math.sin(dLat / 2) ** 2 +
-          Math.cos(rLat1) * Math.cos(rLat2) * Math.sin(dLon / 2) ** 2;
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(rLat1) * Math.cos(rLat2) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
 
         return 2 * earthRadiusNm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
       }
@@ -746,7 +742,7 @@
         const stations = window.ZFW_WEATHER_STATIONS || [];
         let best = null;
 
-        stations.forEach((station) => {
+        stations.forEach(function (station) {
           if (!Number.isFinite(Number(station.lat)) || !Number.isFinite(Number(station.lon))) return;
 
           const nm = distanceNm(Number(record.lat), Number(record.lon), Number(station.lat), Number(station.lon));
@@ -770,7 +766,8 @@
           aliases.push(clean, "K" + clean);
         }
 
-        for (const alias of aliases) {
+        for (let i = 0; i < aliases.length; i += 1) {
+          const alias = aliases[i];
           if (airports[alias]) {
             return {
               ident: alias.startsWith("K") ? alias.slice(1) : alias,
@@ -803,17 +800,17 @@
 
         if (/^[A-Z0-9]{3}$/.test(ident)) {
           const kIdent = "K" + ident;
-          if (records[kIdent] && isAirportRecord(records[kIdent])) return { ident, record: records[kIdent], adjacent: false };
-          if (records[ident] && isAirportRecord(records[ident])) return { ident, record: records[ident], adjacent: false };
-          if (records[ident]) return { ident, record: records[ident], adjacent: false };
-          if (navSources[ident]) return { ident, record: navSources[ident], adjacent: false };
+          if (records[kIdent] && isAirportRecord(records[kIdent])) return { ident: ident, record: records[kIdent], adjacent: false };
+          if (records[ident] && isAirportRecord(records[ident])) return { ident: ident, record: records[ident], adjacent: false };
+          if (records[ident]) return { ident: ident, record: records[ident], adjacent: false };
+          if (navSources[ident]) return { ident: ident, record: navSources[ident], adjacent: false };
 
           const adjacent = getAdjacentRecord(ident);
           if (adjacent) return { ident: adjacent.ident, record: adjacent.record, adjacent: true };
         }
 
-        if (records[ident]) return { ident, record: records[ident], adjacent: false };
-        if (navSources[ident]) return { ident, record: navSources[ident], adjacent: false };
+        if (records[ident]) return { ident: ident, record: records[ident], adjacent: false };
+        if (navSources[ident]) return { ident: ident, record: navSources[ident], adjacent: false };
 
         return null;
       }
@@ -829,14 +826,6 @@
 
         status.textContent = text;
         status.style.color = color || "";
-      }
-
-      function clearOmicOutputs() {
-        setOmicText("omicSector", "—");
-        setOmicText("omicApp", "—");
-        setOmicText("omicArea", "—");
-        setOmicText("omicWeather", "—");
-        clearOmicHighlights();
       }
 
       function clearOmicHighlights() {
@@ -863,7 +852,6 @@
       function highlightOmicBox(valueId, color) {
         const value = document.getElementById(valueId);
         const card = value ? value.closest(".card") : null;
-
         if (!value || !card) return;
 
         const title = card.querySelector(".card-title");
@@ -886,12 +874,20 @@
         if (title) title.style.color = "var(--green)";
       }
 
+      function clearOmicOutputs() {
+        setOmicText("omicSector", "—");
+        setOmicText("omicApp", "—");
+        setOmicText("omicArea", "—");
+        setOmicText("omicWeather", "—");
+        clearOmicHighlights();
+      }
+
       function scheduleOmicClear() {
         const input = document.getElementById("omicInput");
         if (!input) return;
 
         if (omicClearTimer) clearTimeout(omicClearTimer);
-        omicClearTimer = setTimeout(() => {
+        omicClearTimer = setTimeout(function () {
           input.value = "";
           input.focus();
         }, 1000);
@@ -953,8 +949,7 @@
           if (isOpen(hours[0] || "")) {
             const appLine = splitOutput(apps);
             const vscsLine = vscs.length ? "VSCS: " + splitOutput(vscs) : "";
-            setOmicText("omicApp", [appLine, vscsLine].filter(Boolean).join("
-"));
+            setOmicText("omicApp", [appLine, vscsLine].filter(Boolean).join("\n"));
             highlightOmicBox("omicApp", "green");
           } else {
             setOmicText("omicApp", "CLOSED");
@@ -974,29 +969,6 @@
         }
 
         setOmicStatus(searched + " found", "var(--amber)");
-
-        scheduleOmicClear();
-          return;
-        }
-
-        setOmicText("omicSector", splitOutput(sectors));
-
-        if (apps.length) {
-          if (isOpen(hours[0] || "")) {
-            const appLine = splitOutput(apps);
-            const vscsLine = vscs.length ? "VSCS: " + splitOutput(vscs) : "";
-            setOmicText("omicApp", [appLine, vscsLine].filter(Boolean).join("\\n"));
-          } else {
-            setOmicText("omicApp", "CLOSED");
-          }
-        } else {
-          setOmicText("omicApp", "—");
-        }
-
-        setOmicText("omicArea", splitOutput(areas));
-        setOmicText("omicWeather", nearestWeather(record));
-        setOmicStatus(searched + " found", "var(--amber)");
-
         scheduleOmicClear();
       }
 
@@ -1058,9 +1030,7 @@
               status.style.color = "";
             }
 
-            if (input) {
-              input.focus();
-            }
+            if (input) input.focus();
           })
           .catch(function (error) {
             console.error(error);

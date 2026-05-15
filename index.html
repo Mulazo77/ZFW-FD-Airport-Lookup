@@ -281,6 +281,105 @@
     }
   </style>
 
+
+  <style>
+    #roleSelectionPage,
+    #omicPage {
+      min-height: 100vh;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: linear-gradient(135deg, #0f172a 0%, #156082 100%);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .role-card,
+    .omic-card {
+      width: 100%;
+      max-width: 640px;
+      background: #ffffff;
+      border-radius: 18px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+      padding: 32px;
+      text-align: center;
+    }
+
+    .role-card h1,
+    .omic-card h1 {
+      margin: 0 0 8px;
+      font-size: 1.75rem;
+      line-height: 1.2;
+      color: #0f172a;
+    }
+
+    .role-card p,
+    .omic-card p {
+      margin: 0 0 24px;
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+
+    .role-button-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .role-button {
+      border: 0;
+      border-radius: 14px;
+      min-height: 72px;
+      padding: 14px 18px;
+      color: #ffffff;
+      font-size: 1.15rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    #fdcsRoleButton {
+      background: #156082;
+    }
+
+    #omicRoleButton {
+      background: #64748b;
+    }
+
+    .role-button:hover,
+    .role-secondary-button:hover {
+      filter: brightness(0.94);
+    }
+
+    .role-secondary-button {
+      margin-top: 20px;
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      background: #64748b;
+      color: #ffffff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .wip-box {
+      margin-top: 18px;
+      border: 2px dashed #cbd5e1;
+      border-radius: 14px;
+      padding: 28px;
+      background: #f8fafc;
+      color: #0f172a;
+      font-size: 1.2rem;
+      font-weight: 800;
+    }
+
+    @media (max-width: 640px) {
+      .role-button-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
 </head>
 <body>
   <section id="loginPage">
@@ -298,6 +397,34 @@
       <div id="loginError">Invalid username or password.</div>
     </form>
   </section>
+
+
+  <section id="roleSelectionPage">
+    <div class="role-card">
+      <h1>Select Operating Role</h1>
+      <p>Choose the role using the program.</p>
+
+      <div class="role-button-row">
+        <button type="button" id="fdcsRoleButton" class="role-button">FDCS</button>
+        <button type="button" id="omicRoleButton" class="role-button">OMIC</button>
+      </div>
+
+      <button type="button" id="roleLogoutButton" class="role-secondary-button">Logout</button>
+    </div>
+  </section>
+
+  <section id="omicPage">
+    <div class="omic-card">
+      <h1>OMIC View</h1>
+      <p>This section is reserved for OMIC-specific tools.</p>
+
+      <div class="wip-box">WIP</div>
+
+      <button type="button" id="omicBackButton" class="role-secondary-button">Back to Role Selection</button>
+      <button type="button" id="omicLogoutButton" class="role-secondary-button">Logout</button>
+    </div>
+  </section>
+
 
   <div id="appContent">
     <header class="topbar">
@@ -407,14 +534,34 @@
     const SESSION_KEY = "zfwAirportLocatorLoggedIn";
 
     const loginPage = document.getElementById("loginPage");
+    const roleSelectionPage = document.getElementById("roleSelectionPage");
+    const omicPage = document.getElementById("omicPage");
     const appContent = document.getElementById("appContent");
     const loginForm = document.getElementById("loginForm");
     const loginError = document.getElementById("loginError");
     const logoutButton = document.getElementById("logoutButton");
+    const roleLogoutButton = document.getElementById("roleLogoutButton");
+    const omicLogoutButton = document.getElementById("omicLogoutButton");
+    const fdcsRoleButton = document.getElementById("fdcsRoleButton");
+    const omicRoleButton = document.getElementById("omicRoleButton");
+    const omicBackButton = document.getElementById("omicBackButton");
+
+    function hideAllPages() {
+      loginPage.style.display = "none";
+      roleSelectionPage.style.display = "none";
+      omicPage.style.display = "none";
+      appContent.style.display = "none";
+    }
+
+    function showRoleSelection() {
+      hideAllPages();
+      roleSelectionPage.style.display = "flex";
+    }
 
     function showApp() {
-      loginPage.style.display = "none";
+      hideAllPages();
       appContent.style.display = "block";
+
       const airportInput = document.getElementById("airportInput");
       if (airportInput) {
         airportInput.focus();
@@ -428,13 +575,25 @@
       }
     }
 
+    function showOmic() {
+      hideAllPages();
+      omicPage.style.display = "flex";
+    }
+
     function showLogin() {
+      hideAllPages();
       loginPage.style.display = "flex";
-      appContent.style.display = "none";
+    }
+
+    function logout() {
+      sessionStorage.removeItem(SESSION_KEY);
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+      showLogin();
     }
 
     if (sessionStorage.getItem(SESSION_KEY) === "true") {
-      showApp();
+      showRoleSelection();
     } else {
       showLogin();
     }
@@ -448,19 +607,19 @@
       if (username === VALID_USERNAME && password === VALID_PASSWORD) {
         sessionStorage.setItem(SESSION_KEY, "true");
         loginError.style.display = "none";
-        showApp();
+        showRoleSelection();
       } else {
         sessionStorage.removeItem(SESSION_KEY);
         loginError.style.display = "block";
       }
     });
 
-    logoutButton.addEventListener("click", function () {
-      sessionStorage.removeItem(SESSION_KEY);
-      document.getElementById("username").value = "";
-      document.getElementById("password").value = "";
-      showLogin();
-    });
+    fdcsRoleButton.addEventListener("click", showApp);
+    omicRoleButton.addEventListener("click", showOmic);
+    omicBackButton.addEventListener("click", showRoleSelection);
+    logoutButton.addEventListener("click", logout);
+    roleLogoutButton.addEventListener("click", logout);
+    omicLogoutButton.addEventListener("click", logout);
   </script>
 
 </body>

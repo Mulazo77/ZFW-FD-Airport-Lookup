@@ -1,6 +1,5 @@
 // Firestore correction layer for ZFW FDU Airport Locator.
-// Firebase does not start until after the site login succeeds.
-// This prevents the login screen from becoming unresponsive.
+// Starts after the site login succeeds. Shared corrections are applied to all loaded app data.
 
 (function () {
   "use strict";
@@ -8,7 +7,7 @@
   const FIREBASE_APP_URL = "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   const FIREBASE_AUTH_URL = "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   const FIREBASE_FIRESTORE_URL = "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-  const FIREBASE_TIMEOUT_MS = 5000;
+  const FIREBASE_TIMEOUT_MS = 8000;
 
   let startPromise = null;
   let initialized = false;
@@ -17,7 +16,7 @@
   let db = null;
 
   function normalizeIdent(value) {
-    return String(value || "").trim().toUpperCase();
+    return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
   }
 
   function clone(value) {
@@ -35,10 +34,31 @@
     return window.ZFW_NAV_DATA;
   }
 
+  function getAdjacentData() {
+    if (!window.ZFW_ADJACENT_ARTCC_AIRPORTS) {
+      window.ZFW_ADJACENT_ARTCC_AIRPORTS = { centers: {}, airports: {} };
+    }
+
+    window.ZFW_ADJACENT_ARTCC_AIRPORTS.centers = window.ZFW_ADJACENT_ARTCC_AIRPORTS.centers || {};
+    window.ZFW_ADJACENT_ARTCC_AIRPORTS.airports = window.ZFW_ADJACENT_ARTCC_AIRPORTS.airports || {};
+
+    return window.ZFW_ADJACENT_ARTCC_AIRPORTS;
+  }
+
   function timeoutPromise(ms) {
-    return new Promise((_, reject) => {
-      setTimeout(() => reject(new Error("Firebase connection timed out.")), ms);
+    return new Promise(function (_, reject) {
+      setTimeout(function () {
+        reject(new Error("Firebase connection timed out."));
+      }, ms);
     });
+  }
+
+  function isAirportType(type) {
+    return String(type || "").toLowerCase() === "airport";
+  }
+
+  function isNonZfwType(type) {
+    return String(type || "").toLowerCase() === "non_zfw_airports";
   }
 
   function applyRecord(type, ident, record) {
@@ -46,9 +66,9 @@
     if (!ident) return;
 
     record = clone(record);
+    const records = getAirportRecords();
 
-    if (type === "airport") {
-      const records = getAirportRecords();
+    if (isAirportType(type)) {
       records[ident] = record;
 
       if (ident.length === 4 && ident.startsWith("K")) {
@@ -56,26 +76,81 @@
       } else if (ident.length === 3) {
         records["K" + ident] = clone(record);
       }
-    } else {
-      // Navaids, fixes, and waypoints never receive K-prefix aliases.
-      if (ident.length === 4 && ident.startsWith("K")) {
-        ident = ident.slice(1);
+
+      notifyDataChanged();
+      return;
+    }
+
+    if (isNonZfwType(type)) {
+      const adjacent = getAdjacentData();
+      let cleanIdent = ident;
+
+      if (cleanIdent.length === 4 && cleanIdent.startsWith("K")) {
+        cleanIdent = cleanIdent.slice(1);
       }
 
-      record.record_type = record.record_type || record.type || "WAYPOINT";
+      const center = String(record.center || "").toUpperCase();
+      const cleanRecord = {
+        center: center,
+        name: record.name || record.airport_name || cleanIdent,
+        fdcd: record.fdcd || ""
+      };
 
-      getNavData()[ident] = record;
-      getAirportRecords()[ident] = record;
+      adjacent.airports[cleanIdent] = cleanRecord;
+      adjacent.airports["K" + cleanIdent] = cleanRecord;
 
-      const fakeK = "K" + ident;
-      if (getAirportRecords()[fakeK] && String(getAirportRecords()[fakeK].record_type || "").toUpperCase() !== "AIRPORT") {
-        delete getAirportRecords()[fakeK];
+      notifyDataChanged();
+      return;
+    }
+
+    // Navaids, fixes, and waypoints never receive K-prefix aliases.
+    if (ident.length === 4 && ident.startsWith("K")) {
+      ident = ident.slice(1);
+    }
+
+    record.record_type = record.record_type || record.type || "WAYPOINT";
+    record.airport_name = record.airport_name || record.name || ident;
+
+    if (record.nearest_wx) {
+      record.nearest_wx = normalizeIdent(record.nearest_wx);
+    }
+
+    getNavData()[ident] = clone(record);
+    records[ident] = clone(record);
+
+    const fakeK = "K" + ident;
+    if (records[fakeK] && String(records[fakeK].record_type || "").toUpperCase() !== "AIRPORT") {
+      delete records[fakeK];
+    }
+
+    notifyDataChanged();
+  }
+
+  function notifyDataChanged() {
+    if (window.ZFW_MERGE_NAV_DATA) {
+      try {
+        window.ZFW_MERGE_NAV_DATA();
+      } catch (error) {
+        console.warn("Could not merge shared nav data:", error.message || error);
       }
     }
 
     if (window.ZFW_UPDATE_NEAREST_WX) {
       setTimeout(window.ZFW_UPDATE_NEAREST_WX, 0);
+      setTimeout(window.ZFW_UPDATE_NEAREST_WX, 250);
     }
+
+    const airportInput = document.getElementById("airportInput");
+    if (airportInput && airportInput.value) {
+      airportInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    const omicInput = document.getElementById("omicInput");
+    if (omicInput && omicInput.value) {
+      omicInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    window.dispatchEvent(new CustomEvent("zfw-shared-corrections-updated"));
   }
 
   async function initFirebase() {
@@ -93,10 +168,14 @@
         import(FIREBASE_FIRESTORE_URL)
       ]);
 
-      const [appMod, authMod, firestoreMod] = await Promise.race([
+      const modules = await Promise.race([
         firebaseLoad,
         timeoutPromise(FIREBASE_TIMEOUT_MS)
       ]);
+
+      const appMod = modules[0];
+      const authMod = modules[1];
+      const firestoreMod = modules[2];
 
       const app = appMod.initializeApp(window.ZFW_FIREBASE_CONFIG);
       const auth = authMod.getAuth(app);
@@ -123,16 +202,18 @@
     if (!ok) return false;
 
     try {
-      const { collection, getDocs } = firestoreApi;
+      const collection = firestoreApi.collection;
+      const getDocs = firestoreApi.getDocs;
 
       const groups = [
         { type: "airport", path: "airports" },
-        { type: "navpoint", path: "navpoints" }
+        { type: "navpoint", path: "navpoints" },
+        { type: "non_zfw_airports", path: "non_zfw_airports" }
       ];
 
       for (const group of groups) {
         const snapshot = await getDocs(collection(db, "zfw_corrections", group.path, "records"));
-        snapshot.forEach((docSnap) => {
+        snapshot.forEach(function (docSnap) {
           applyRecord(group.type, docSnap.id, docSnap.data());
         });
       }
@@ -145,26 +226,28 @@
   }
 
   function listenForSharedCorrections() {
-    initFirebase().then((ok) => {
+    initFirebase().then(function (ok) {
       if (!ok) return;
 
       try {
-        const { collection, onSnapshot } = firestoreApi;
+        const collection = firestoreApi.collection;
+        const onSnapshot = firestoreApi.onSnapshot;
 
         [
           { type: "airport", path: "airports" },
-          { type: "navpoint", path: "navpoints" }
-        ].forEach((group) => {
+          { type: "navpoint", path: "navpoints" },
+          { type: "non_zfw_airports", path: "non_zfw_airports" }
+        ].forEach(function (group) {
           onSnapshot(
             collection(db, "zfw_corrections", group.path, "records"),
-            (snapshot) => {
-              snapshot.docChanges().forEach((change) => {
+            function (snapshot) {
+              snapshot.docChanges().forEach(function (change) {
                 if (change.type !== "removed") {
                   applyRecord(group.type, change.doc.id, change.doc.data());
                 }
               });
             },
-            (error) => {
+            function (error) {
               console.warn("Firestore listener stopped:", error.message || error);
             }
           );
@@ -185,12 +268,18 @@
     if (!ok) return false;
 
     try {
-      const { doc, setDoc, serverTimestamp } = firestoreApi;
-      const collectionName = type === "airport" ? "airports" : "navpoints";
+      const doc = firestoreApi.doc;
+      const setDoc = firestoreApi.setDoc;
+      const serverTimestamp = firestoreApi.serverTimestamp;
+
+      let collectionName = "navpoints";
+      if (isAirportType(type)) collectionName = "airports";
+      if (isNonZfwType(type)) collectionName = "non_zfw_airports";
+
       const cleanRecord = clone(record);
 
       cleanRecord.identifier = ident;
-      cleanRecord.data_category = type === "airport" ? "airport" : "navpoint";
+      cleanRecord.data_category = collectionName;
       cleanRecord.updated_at = serverTimestamp();
 
       await setDoc(doc(db, "zfw_corrections", collectionName, "records", ident), cleanRecord);
@@ -204,8 +293,9 @@
   function startFirebaseAfterLogin() {
     if (startPromise) return startPromise;
 
-    startPromise = loadSharedCorrections().then(() => {
+    startPromise = loadSharedCorrections().then(function () {
       listenForSharedCorrections();
+      return true;
     });
 
     return startPromise;
@@ -214,6 +304,5 @@
   window.ZFW_START_FIREBASE = startFirebaseAfterLogin;
   window.ZFW_SAVE_SHARED_RECORD = saveSharedRecord;
   window.ZFW_LOAD_SHARED_CORRECTIONS = loadSharedCorrections;
-
-  // Critical: intentionally do not auto-start here.
+  window.ZFW_APPLY_SHARED_RECORD = applyRecord;
 })();

@@ -664,12 +664,26 @@
         console.log("Loading", src);
         await loadScriptSequentially(src);
       }
+      if (window.ZFW_START_FIREBASE) {
+        if (status) status.textContent = "Loading shared updates...";
+        try {
+          await window.ZFW_START_FIREBASE();
+        } catch (error) {
+          console.warn("Shared updates failed to start:", error);
+        }
+      }
+
       if (status) status.textContent = "Ready";
 
       const airportInput = document.getElementById("airportInput");
       if (airportInput) {
         airportInput.focus();
         airportInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+
+      if (window.ZFW_UPDATE_NEAREST_WX) {
+        setTimeout(window.ZFW_UPDATE_NEAREST_WX, 0);
+        setTimeout(window.ZFW_UPDATE_NEAREST_WX, 250);
       }
     }
   </script>

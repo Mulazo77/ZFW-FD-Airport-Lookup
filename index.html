@@ -436,6 +436,37 @@
       }
     }
 
+
+    .omic-reference-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      text-align: left;
+    }
+
+    .omic-reference-panel {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #101820;
+      padding: 18px;
+      min-height: 120px;
+    }
+
+    .omic-reference-panel h3 {
+      margin: 0;
+      color: var(--cyan);
+      font-size: 1.25rem;
+      font-weight: 900;
+      text-align: center;
+      letter-spacing: 0.4px;
+    }
+
+    @media(max-width: 800px) {
+      .omic-reference-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media(max-width: 900px) {
       .omic-output-grid {
         grid-template-columns: 1fr;
@@ -1010,10 +1041,26 @@
         document.querySelectorAll("[data-omic-wip]").forEach(function (button) {
           button.addEventListener("click", function () {
             const box = document.getElementById("omicWipBox");
-            if (box) {
-              box.textContent = button.getAttribute("data-omic-wip") + " — WIP";
+            if (!box) return;
+
+            const section = button.getAttribute("data-omic-wip");
+
+            if (section === "PIREPs") {
+              box.innerHTML = ''
+                + '<div class="omic-reference-grid">'
+                + '<section class="omic-reference-panel">'
+                + '<h3>Routine (UA)</h3>'
+                + '</section>'
+                + '<section class="omic-reference-panel">'
+                + '<h3>Urgent (UUA)</h3>'
+                + '</section>'
+                + '</div>';
               box.style.display = "block";
+              return;
             }
+
+            box.textContent = section + " — WIP";
+            box.style.display = "block";
           });
         });
 

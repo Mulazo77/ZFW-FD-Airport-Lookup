@@ -453,12 +453,31 @@
     }
 
     .omic-reference-panel h3 {
-      margin: 0;
+      margin: 0 0 14px;
       color: var(--cyan);
       font-size: 1.25rem;
       font-weight: 900;
       text-align: center;
       letter-spacing: 0.4px;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    .omic-reference-panel ul {
+      margin: 0;
+      padding-left: 22px;
+      color: var(--text);
+      font-size: 1rem;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .omic-reference-panel li {
+      margin-bottom: 12px;
+    }
+
+    .omic-reference-panel li:last-child {
+      margin-bottom: 0;
     }
 
     @media(max-width: 800px) {
@@ -1050,6 +1069,11 @@
                 + '<div class="omic-reference-grid">'
                 + '<section class="omic-reference-panel">'
                 + '<h3>Routine (UA)</h3>'
+                + '<ul>'
+                + '<li>Enter the PIREP into the AISR fields as received through ERIDS. Airports can be entered as the 3 letter identifier. Do not add radial/dme to the METAR field.</li>'
+                + '<li>Use the search function if the controller used a navaid/waypoint in the PIREP to show the nearest weather station needed for the METAR field. Do not add radial/dme to the search bar.</li>'
+                + '<li>Click Send.</li>'
+                + '</ul>'
                 + '</section>'
                 + '<section class="omic-reference-panel">'
                 + '<h3>Urgent (UUA)</h3>'

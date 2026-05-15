@@ -376,19 +376,19 @@
     }
 
     .omic-output-grid .card {
-      min-height: 150px !important;
-      padding: 18px 20px !important;
+      min-height: 112px !important;
+      padding: 12px 14px !important;
     }
 
     .omic-output-grid .card-title {
-      font-size: 1.05rem !important;
-      line-height: 1.15 !important;
-      margin-bottom: 10px !important;
+      font-size: 0.82rem !important;
+      line-height: 1.1 !important;
+      margin-bottom: 7px !important;
     }
 
     .omic-output-grid .card-value {
-      font-size: clamp(1.7rem, 2.7vw, 2.7rem) !important;
-      line-height: 1.12 !important;
+      font-size: clamp(1.25rem, 2vw, 2rem) !important;
+      line-height: 1.1 !important;
       font-weight: 900 !important;
     }
 
@@ -397,6 +397,8 @@
       box-shadow: 0 0 0 3px rgba(65, 209, 125, 0.32), 0 0 18px rgba(65, 209, 125, 0.30) !important;
     }
 
+    .omic-green-highlight .card-title,
+    .omic-green-highlight .card-value,
     .omic-green-text {
       color: var(--green) !important;
     }
@@ -406,6 +408,8 @@
       box-shadow: 0 0 0 3px rgba(255, 75, 75, 0.28), 0 0 18px rgba(255, 75, 75, 0.24) !important;
     }
 
+    .omic-red-highlight .card-title,
+    .omic-red-highlight .card-value,
     .omic-red-text {
       color: var(--red) !important;
     }
@@ -842,10 +846,16 @@
 
           if (value) {
             value.classList.remove("omic-green-text", "omic-red-text");
+            value.style.color = "";
           }
 
           if (card) {
             card.classList.remove("omic-green-highlight", "omic-red-highlight");
+            card.style.borderColor = "";
+            card.style.boxShadow = "";
+
+            const title = card.querySelector(".card-title");
+            if (title) title.style.color = "";
           }
         });
       }
@@ -856,14 +866,24 @@
 
         if (!value || !card) return;
 
+        const title = card.querySelector(".card-title");
+
         if (color === "red") {
           value.classList.add("omic-red-text");
           card.classList.add("omic-red-highlight");
+          value.style.color = "var(--red)";
+          card.style.borderColor = "var(--red)";
+          card.style.boxShadow = "0 0 0 3px rgba(255, 75, 75, 0.28), 0 0 18px rgba(255, 75, 75, 0.24)";
+          if (title) title.style.color = "var(--red)";
           return;
         }
 
         value.classList.add("omic-green-text");
         card.classList.add("omic-green-highlight");
+        value.style.color = "var(--green)";
+        card.style.borderColor = "var(--green)";
+        card.style.boxShadow = "0 0 0 3px rgba(65, 209, 125, 0.32), 0 0 18px rgba(65, 209, 125, 0.30)";
+        if (title) title.style.color = "var(--green)";
       }
 
       function scheduleOmicClear() {
@@ -907,11 +927,13 @@
 
         const record = result.record || {};
         clearOmicHighlights();
+
         const sectors = record.sectors || [];
         const areas = record.areas || [];
         const apps = record.apps || [];
         const vscs = record.vscs || [];
         const hours = record.hours || [];
+        const navRecord = isNavRecord(record);
 
         if (result.adjacent) {
           const center = record.center || "—";
@@ -922,6 +944,38 @@
           highlightOmicBox("omicApp", "green");
           setOmicStatus(searched + " found", "var(--amber)");
           scheduleOmicClear();
+          return;
+        }
+
+        setOmicText("omicSector", splitOutput(sectors));
+
+        if (apps.length) {
+          if (isOpen(hours[0] || "")) {
+            const appLine = splitOutput(apps);
+            const vscsLine = vscs.length ? "VSCS: " + splitOutput(vscs) : "";
+            setOmicText("omicApp", [appLine, vscsLine].filter(Boolean).join("
+"));
+            highlightOmicBox("omicApp", "green");
+          } else {
+            setOmicText("omicApp", "CLOSED");
+            highlightOmicBox("omicApp", "red");
+          }
+        } else {
+          setOmicText("omicApp", "—");
+        }
+
+        setOmicText("omicArea", splitOutput(areas));
+        setOmicText("omicWeather", nearestWeather(record));
+
+        if (navRecord) {
+          highlightOmicBox("omicWeather", "green");
+        } else if (!apps.length) {
+          highlightOmicBox("omicSector", "green");
+        }
+
+        setOmicStatus(searched + " found", "var(--amber)");
+
+        scheduleOmicClear();
           return;
         }
 

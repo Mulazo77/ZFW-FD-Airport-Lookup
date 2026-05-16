@@ -17,7 +17,8 @@ function isCompleteLookupInput(v){const s=String(v||"").trim().toUpperCase();ret
 function isNavLikeRecord(record){const type=String((record&&(record.record_type||record.type))||"").toUpperCase();return ["NAVAID","WAYPOINT","FIX","VOR","VORTAC","NDB"].includes(type)}
 function uniqueList(items){return [...new Set(items.filter(Boolean))]}
 function airportLookupAliases(value){const s=String(value||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");if(/^K[A-Z0-9]{3}$/.test(s))return uniqueList([s,s.slice(1)]);if(/^[A-Z]{3}$/.test(s))return uniqueList(["K"+s,s]);if(/^[A-Z0-9]{3}$/.test(s))return uniqueList([s,"K"+s]);return [s]}
-function resolveZfwAirportSearch(value){for(const alias of airportLookupAliases(value)){const record=records[alias];if(record&&!isNavLikeRecord(record))return {query:alias,record:record}}return null}
+function hasZfwSectorOrArea(record){return !!(record&&((Array.isArray(record.sectors)&&record.sectors.length)||(Array.isArray(record.areas)&&record.areas.length)))}
+function resolveZfwAirportSearch(value){for(const alias of airportLookupAliases(value)){const record=records[alias];if(record&&!isNavLikeRecord(record)&&hasZfwSectorOrArea(record))return {query:alias,record:record}}return null}
 function displayIdentForQuery(query,typed){const clean=String(typed||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");if(clean.length===3&&query==="K"+clean)return clean;return query}
 
 function splitLines(items){return(!items||!items.length)?"":items.filter(Boolean).join("\n")}
@@ -226,6 +227,8 @@ function updateResults(){
   }else{
     if(apps.length){
       highlightFdcsCard("approach","red");
+      if(vscsValue==="CLOSED")els.vscs.classList.add("red-text");
+      if(contactValue==="CLOSED")els.contact.classList.add("red-text");
       if(sectors.length)highlightFdcsCard("sector","green");
       statusEl.textContent=`${upper} found`;
       statusEl.style.color="var(--red)";

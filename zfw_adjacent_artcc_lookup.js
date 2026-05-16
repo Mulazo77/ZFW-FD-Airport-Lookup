@@ -43,11 +43,22 @@
     return null;
   }
 
+  function hasZfwSectorOrArea(record){
+    return !!(
+      record &&
+      (
+        (Array.isArray(record.sectors) && record.sectors.length) ||
+        (Array.isArray(record.areas) && record.areas.length)
+      )
+    );
+  }
+
   function getZfwRecord(ident){
     const records = window.AIRPORT_DATA?.records || {};
 
     for(const alias of aliasesFor(ident)){
-      if(records[alias]) return records[alias];
+      const record = records[alias];
+      if(record && hasZfwSectorOrArea(record)) return record;
     }
 
     return null;

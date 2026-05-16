@@ -390,7 +390,7 @@
   }
 
   function createCorrectionUi() {
-    if (document.getElementById("correctionModal")) return;
+    if (document.getElementById("correctionTools")) return;
 
     const style = document.createElement("style");
     style.textContent = `
@@ -523,13 +523,16 @@
     `;
     document.head.appendChild(style);
 
-    const tools = document.getElementById("correctionTools");
-    if (tools && !document.getElementById("amendAirportButton")) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.id = "amendAirportButton";
-      button.textContent = "Add/Amend Airport";
-      tools.appendChild(button);
+    const tools = document.createElement("div");
+    tools.id = "correctionTools";
+    tools.className = "correction-tools";
+    tools.innerHTML = `
+      <button type="button" id="amendAirportButton">Add/Amend Airport</button>
+    `;
+
+    const searchRow = document.querySelector(".search-row");
+    if (searchRow) {
+      searchRow.appendChild(tools);
     }
 
     const modal = document.createElement("div");
@@ -865,21 +868,16 @@
   }
 
   function createPirepUi() {
-    if (document.getElementById("pirepNavModal")) return;
+    if (document.getElementById("addPirepNavButton")) return;
 
     const tools = document.getElementById("correctionTools");
-    let button = document.getElementById("addPirepNavButton");
-
-    if (tools && !button) {
-      button = document.createElement("button");
+    if (tools) {
+      const button = document.createElement("button");
       button.type = "button";
       button.id = "addPirepNavButton";
       button.className = "secondary";
       button.textContent = "Add/Amend Waypoint/Navaid for PIREP";
       tools.appendChild(button);
-    }
-
-    if (button) {
       button.addEventListener("click", openPirepModal);
     }
 
@@ -1093,9 +1091,7 @@ const corrections = loadCorrections();
 
   const LOW_SECTORS = [
     "",
-    "ABI 20", "ADM 21", "BYP 35", "CQY 39", "DAL 29", "DON 29",
-    "FUZ 38", "GGG 37", "GNP 46", "JEN 56", "LBBL 64", "MLU 31",
-    "RDR 66", "SJT 41", "SPS 34", "TXK 27", "UKW 48"
+    "MAF 40", "LBB 64", "ABI 63", "EDN 62", "SPS 34", "OKC 35", "UKW 75", "POS 32", "ACT 96", "FRI 53", "MLC 38", "SEA 37", "UIM 83", "TXK 27", "DON 29", "MLU 30"
   ];
 
   const AREAS = ["", "DAL", "CQY", "BYP", "JEN", "UKW", "RDR"];
@@ -1216,15 +1212,30 @@ const corrections = loadCorrections();
 
 
   function areaFromSectorValue(sectorValue) {
-    const sector = String(sectorValue || "").toUpperCase();
-    if (sector.includes("LBB")) return "RDR";
-    if (sector.includes("SPS") || sector.includes("UKW")) return "UKW";
-    if (sector.includes("DAL")) return "DAL";
-    if (sector.includes("CQY")) return "CQY";
-    if (sector.includes("BYP") || sector.includes("TXK")) return "BYP";
-    if (sector.includes("JEN")) return "JEN";
-    if (sector.includes("RDR")) return "RDR";
-    return "";
+    const sector = String(sectorValue || "").toUpperCase().trim();
+
+    // Area names are operational areas. They are not the same thing as airport
+    // identifiers or three-letter sector names that may share the same letters.
+    const sectorAreaMap = {
+      "LBB 64": "RDR",
+      "POS 32": "RDR",
+      "MAF 40": "JEN",
+      "ABI 63": "JEN",
+      "EDN 62": "JEN",
+      "ACT 96": "DAL",
+      "UIM 83": "DAL",
+      "TXK 27": "DAL",
+      "SPS 34": "UKW",
+      "OKC 35": "UKW",
+      "UKW 75": "UKW",
+      "FRI 53": "BYP",
+      "MLC 38": "BYP",
+      "SEA 37": "BYP",
+      "DON 29": "CQY",
+      "MLU 30": "CQY"
+    };
+
+    return sectorAreaMap[sector] || "";
   }
 
   function ensureDerivedAreaField(form) {

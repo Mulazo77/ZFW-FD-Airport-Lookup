@@ -24,6 +24,78 @@ function isOpen(hours){const w=parseHours(hours);if(!w.length)return false;const
 function setText(id,v){els[id].textContent=v||"—"}
 function clearClasses(){Object.values(cards).forEach(c=>{c.classList.remove("primary");c.style.background="";c.style.borderColor="";c.style.boxShadow=""});Object.values(els).forEach(e=>{e.classList.remove("red-text","green-text","amber-text","cyan-text");e.style.color=""})}
 function highlightFdcsCard(id,color){const card=cards[id],el=els[id];if(!card||!el)return;if(color==="red"){card.style.borderColor="var(--red)";card.style.boxShadow="0 0 0 3px rgba(255,75,75,.28),0 0 18px rgba(255,75,75,.24)";el.classList.add("red-text");return}card.style.borderColor="var(--green)";card.style.boxShadow="0 0 0 3px rgba(65,209,125,.32),0 0 18px rgba(65,209,125,.30)";el.classList.add("green-text")}
+
+function appKey(appName){
+  return String(appName||"").toUpperCase().replace(/\s+APP\b/,"").split(/\s+/)[0].replace(/[^A-Z0-9]/g,"");
+}
+function contactSegments(contacts){
+  return (contacts||[]).flatMap(c=>String(c||"").split(/\s+\/\s+/)).map(s=>s.trim()).filter(Boolean);
+}
+function findAppHour(appName,hours,index){
+  const key=appKey(appName);
+  const list=hours||[];
+  if(key){
+    const hit=list.find(h=>String(h||"").toUpperCase().includes(key));
+    if(hit)return hit;
+  }
+  return list[index]||list[0]||"";
+}
+function findAppContactSegment(appName,contacts,index){
+  const key=appKey(appName);
+  const segments=contactSegments(contacts);
+  if(key){
+    const hit=segments.find(s=>String(s||"").toUpperCase().includes(key));
+    if(hit)return hit;
+  }
+  return segments[index]||contacts[index]||contacts[0]||"";
+}
+function extractVscsFromContact(text){
+  const match=String(text||"").match(/VSCS\s*:?\s*([0-9]{3}\s*\([0-9]{2}\))/i);
+  return match?match[1].trim():"";
+}
+function extractPhoneFromContact(text){
+  const str=String(text||"");
+  const tel=str.match(/(?:TEL|PHONE|CD\s*PHONE)\s*:?\s*((?:\(\d{3}\)\s*)?\d{3}[-\s]?\d{4})/i);
+  if(tel)return tel[1].trim();
+  const phone=str.match(/(\(\d{3}\)\s*\d{3}[-\s]?\d{4})/);
+  return phone?phone[1].trim():"";
+}
+function buildApproachDetails(apps,vscs,contacts,hours){
+  let anyOpen=false;
+  let anyClosed=false;
+  const openLines=[];
+  const closedLines=[];
+  const openVscs=[];
+  const openPhones=[];
+  (apps||[]).forEach((appName,index)=>{
+    const hour=findAppHour(appName,hours,index);
+    const open=isOpen(hour||"");
+    const contact=findAppContactSegment(appName,contacts,index);
+    const vscsValue=extractVscsFromContact(contact)||vscs[index]||"";
+    const phoneValue=extractPhoneFromContact(contact)||extractPhoneFromContact(contacts[index]||"");
+
+    if(open){
+      anyOpen=true;
+      openLines.push([appName,vscsValue?`VSCS: ${vscsValue}`:"",phoneValue?`CD Phone: ${phoneValue}`:""].filter(Boolean).join("\n"));
+      if(vscsValue)openVscs.push(vscsValue);
+      if(phoneValue)openPhones.push(phoneValue);
+    }else{
+      anyClosed=true;
+      closedLines.push(`${appName} CLOSED`);
+    }
+  });
+
+  const approachValue=openLines.concat(closedLines).filter(Boolean).join("\n");
+
+  return {
+    appIsOpen:anyOpen,
+    anyClosed:anyClosed,
+    approachValue:approachValue,
+    vscsValue:anyOpen?openVscs.join("\n"):"CLOSED",
+    contactValue:anyOpen?openPhones.join("\n"):"CLOSED"
+  };
+}
+
 function updateZuluClock(){document.getElementById("zuluClock").textContent=new Date().toISOString().slice(11,19)+"Z"}
 function scheduleClear(){if(clearTimer)clearTimeout(clearTimer);clearTimer=setTimeout(()=>{input.value="";input.focus()},1000)}
 function updateResults(){
@@ -67,7 +139,8 @@ function updateResults(){
   clearClasses();
 
   const sectors=rec.sectors||[],areas=rec.areas||[],apps=rec.apps||[],vscs=rec.vscs||[],contacts=rec.contacts||[],hours=rec.hours||[];
-  const appIsOpen=apps.length>0&&isOpen(hours[0]||"");
+  const appDetails=apps.length?buildApproachDetails(apps,vscs,contacts,hours):{appIsOpen:false,approachValue:"",vscsValue:"",contactValue:""};
+  const appIsOpen=appDetails.appIsOpen;
 
   let sectorValue=splitSectorLines(sectors);
   if(appIsOpen&&sectorValue)sectorValue+="\nAPP OPEN";
@@ -77,18 +150,9 @@ function updateResults(){
   let contactValue="";
 
   if(apps.length){
-    if(appIsOpen){
-      const appLine=splitLines(apps);
-      const vscsLine=vscs.length?"VSCS: "+splitLines(vscs):"";
-      const phoneLine=contacts.length?"CD Phone: "+splitLines(contacts):"";
-      approachValue=[appLine,vscsLine,phoneLine].filter(Boolean).join("\n");
-      vscsValue=splitLines(vscs);
-      contactValue=splitLines(contacts);
-    }else{
-      approachValue="CLOSED";
-      vscsValue="CLOSED";
-      contactValue="CLOSED";
-    }
+    approachValue=appDetails.approachValue || "CLOSED";
+    vscsValue=appDetails.vscsValue;
+    contactValue=appDetails.contactValue;
   }
 
   setText("sector",sectorValue);

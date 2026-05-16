@@ -271,13 +271,6 @@
     const output = document.getElementById("nearestWeather");
     if(!input || !output) return;
 
-    if(window.ZFW_ADJACENT_LOOKUP_ACTIVE){
-      output.textContent = "—";
-      output.title = "";
-      setNearestHighlight(false);
-      return;
-    }
-
     const typedIdent = normalizeIdent(input.value);
     if(!typedIdent){
       restoreLast(output);
@@ -291,13 +284,21 @@
       return;
     }
 
-    if(!isCompleteLookupIdent(typedIdent)){
-      output.textContent = "—";
-      output.title = "";
-      return;
+    const record = getRecord(typedIdent);
+
+    if(window.ZFW_ADJACENT_LOOKUP_ACTIVE){
+      if(record && isNavType(record)){
+        if(window.clearAdjacentAirportDisplayState){
+          window.clearAdjacentAirportDisplayState();
+        }
+      }else{
+        output.textContent = "—";
+        output.title = "";
+        setNearestHighlight(false);
+        return;
+      }
     }
 
-    const record = getRecord(typedIdent);
     if(record && isNavType(record)){ forceStatus("Found"); clearAirportOutputsForNav(record); }
 
     const nearest = calculateNearest(record);
@@ -330,14 +331,22 @@
       const input = document.getElementById("airportInput");
       const output = document.getElementById("nearestWeather");
       if(!input || !output) return;
+      const typedIdent = normalizeIdent(input.value);
+      const intervalRecord = typedIdent ? getRecord(typedIdent) : null;
+
       if(window.ZFW_ADJACENT_LOOKUP_ACTIVE){
-        output.textContent = "—";
-        output.title = "";
-        setNearestHighlight(false);
-        return;
+        if(intervalRecord && isNavType(intervalRecord)){
+          if(window.clearAdjacentAirportDisplayState){
+            window.clearAdjacentAirportDisplayState();
+          }
+        }else{
+          output.textContent = "—";
+          output.title = "";
+          setNearestHighlight(false);
+          return;
+        }
       }
 
-      const typedIdent = normalizeIdent(input.value);
       const outText = normalizeIdent(output.textContent);
       if(typedIdent) updateNearestWeather();
       else {

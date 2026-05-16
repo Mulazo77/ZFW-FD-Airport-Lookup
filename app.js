@@ -178,6 +178,10 @@ function updateResults(){
       return;
     }
 
+    if(window.clearAdjacentAirportDisplayState){
+      window.clearAdjacentAirportDisplayState();
+    }
+
     currentMarker=null;
     drawMap();
     statusEl.textContent=`${upper} not found`;

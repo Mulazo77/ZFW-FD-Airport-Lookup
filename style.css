@@ -1,6 +1,6 @@
 :root{
-  --bg:#0b0f12;--card:#17212b;--border:#3a4652;--header:#06111a;
-  --text:#e6edf3;--muted:#9aa8b5;--cyan:#6ec6ff;--amber:#ffd166;
+  --bg:#071014;--card:#14202a;--border:#2d4052;--header:#071722;
+  --text:#edf5fb;--muted:#9fb0bf;--cyan:#66c8ff;--amber:#ffd166;
   --green:#41d17d;--red:#ff4b4b;
 }
 *{box-sizing:border-box}
@@ -29,8 +29,9 @@ body{overflow:auto}
   align-items:stretch;
 }
 .card{
-  background:var(--card);border:1px solid var(--border);border-radius:12px;
-  padding:clamp(10px,1.4vw,18px);min-width:0;overflow:hidden;min-height:clamp(92px,17vh,170px)
+  background:linear-gradient(180deg,#182735,#14202a);border:1px solid rgba(118,145,169,.30);border-radius:16px;
+  padding:clamp(10px,1.4vw,18px);min-width:0;overflow:hidden;min-height:clamp(92px,17vh,170px);
+  box-shadow:0 12px 28px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.035)
 }
 .card.primary{border:3px solid var(--amber);box-shadow:0 0 14px rgba(255,209,102,.20)}
 .card-title{color:var(--muted);font-size:clamp(10px,1.1vw,13px);font-weight:800;letter-spacing:.7px;margin-bottom:8px}

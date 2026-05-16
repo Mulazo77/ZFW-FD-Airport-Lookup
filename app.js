@@ -26,48 +26,75 @@ function ensureFdcsGlowStyle(){
   const style=document.createElement("style");
   style.id="fdcsGlowStyle";
   style.textContent=`
-    @property --fdcsGlowAngle{
-      syntax:"<angle>";
-      inherits:false;
-      initial-value:0deg;
+    @keyframes fdcsGreenBorderRunner{
+      0%{
+        left:12px;
+        top:0;
+        transform:translateY(-50%) rotate(0deg);
+      }
+      42%{
+        left:calc(100% - 86px);
+        top:0;
+        transform:translateY(-50%) rotate(0deg);
+      }
+      50%{
+        left:calc(100% - 2px);
+        top:calc(100% - 70px);
+        transform:translateX(-50%) rotate(90deg);
+      }
+      92%{
+        left:12px;
+        top:calc(100% - 2px);
+        transform:translateY(-50%) rotate(180deg);
+      }
+      100%{
+        left:0;
+        top:12px;
+        transform:translateX(-50%) rotate(270deg);
+      }
     }
-    @keyframes fdcsGreenBorderOrbit{
-      from{--fdcsGlowAngle:0deg}
-      to{--fdcsGlowAngle:360deg}
-    }
+
     .fdcs-glow-green{
-      --fdcsGlowAngle:0deg;
-      border:2px solid transparent!important;
-      background:
-        linear-gradient(var(--card),var(--card)) padding-box,
-        conic-gradient(from var(--fdcsGlowAngle),
-          rgba(65,209,125,.58) 0deg,
-          rgba(65,209,125,.58) 8deg,
-          rgba(108,255,171,.96) 16deg,
-          #ecfff4 22deg,
-          rgba(108,255,171,.96) 28deg,
-          rgba(65,209,125,.58) 36deg,
-          rgba(65,209,125,.58) 152deg,
-          rgba(108,255,171,.96) 160deg,
-          #ecfff4 166deg,
-          rgba(108,255,171,.96) 172deg,
-          rgba(65,209,125,.58) 180deg,
-          rgba(65,209,125,.58) 188deg,
-          rgba(108,255,171,.96) 196deg,
-          #ecfff4 202deg,
-          rgba(108,255,171,.96) 208deg,
-          rgba(65,209,125,.58) 216deg,
-          rgba(65,209,125,.58) 332deg,
-          rgba(108,255,171,.96) 340deg,
-          #ecfff4 346deg,
-          rgba(108,255,171,.96) 352deg,
-          rgba(65,209,125,.58) 360deg
-        ) border-box!important;
+      position:relative;
+      overflow:hidden;
+      border:2px solid rgba(65,209,125,.72)!important;
+      background:linear-gradient(var(--card),var(--card)) padding-box!important;
       box-shadow:
-        0 0 7px rgba(65,209,125,.34),
-        0 0 16px rgba(65,209,125,.22),
-        inset 0 0 0 1px rgba(65,209,125,.18)!important;
-      animation:fdcsGreenBorderOrbit 4s linear infinite;
+        0 0 7px rgba(65,209,125,.30),
+        0 0 16px rgba(65,209,125,.20),
+        inset 0 0 0 1px rgba(65,209,125,.16)!important;
+    }
+
+    .fdcs-glow-green::before,
+    .fdcs-glow-green::after{
+      content:"";
+      position:absolute;
+      width:74px;
+      height:4px;
+      border-radius:999px;
+      background:linear-gradient(90deg,
+        rgba(65,209,125,0),
+        rgba(65,209,125,.55),
+        #ecfff4,
+        rgba(65,209,125,.55),
+        rgba(65,209,125,0)
+      );
+      box-shadow:
+        0 0 8px rgba(65,209,125,.80),
+        0 0 16px rgba(65,209,125,.42);
+      pointer-events:none;
+      z-index:0;
+      animation:fdcsGreenBorderRunner 8.5s linear infinite;
+      will-change:left,top,transform;
+    }
+
+    .fdcs-glow-green::after{
+      animation-delay:-4.25s;
+    }
+
+    .fdcs-glow-green > *{
+      position:relative;
+      z-index:1;
     }
   `;
   document.head.appendChild(style);

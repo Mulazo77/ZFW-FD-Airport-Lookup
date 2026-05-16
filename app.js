@@ -14,64 +14,17 @@ const els={sector:document.getElementById("sector"),area:document.getElementById
 const cards={sector:document.getElementById("sectorCard"),area:document.getElementById("areaCard"),approach:document.getElementById("approachCard"),vscs:document.getElementById("vscsCard"),contact:document.getElementById("contactCard"),hours:document.getElementById("hoursCard"),airportName:document.getElementById("airportNameCard")};
 function normalizeSearch(v){const s=(v||"").trim().toUpperCase();return(s.length===3&&/^[A-Z]+$/.test(s))?"K"+s:s}
 function isCompleteLookupInput(v){const s=String(v||"").trim().toUpperCase();return /^[A-Z0-9]{3}$/.test(s)||/^K[A-Z0-9]{3}$/.test(s)||/^[A-Z0-9]{5}$/.test(s)}
-function isNavLikeRecord(record){const type=String((record&&(record.record_type||record.type))||"").toUpperCase();return ["NAVAID","WAYPOINT","FIX","VOR","VORTAC","NDB"].includes(type)}
-function uniqueList(items){return [...new Set(items.filter(Boolean))]}
-function airportLookupAliases(value){const s=String(value||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");if(/^K[A-Z0-9]{3}$/.test(s))return uniqueList([s,s.slice(1)]);if(/^[A-Z]{3}$/.test(s))return uniqueList(["K"+s,s]);if(/^[A-Z0-9]{3}$/.test(s))return uniqueList([s,"K"+s]);return [s]}
-function hasZfwSectorOrArea(record){return !!(record&&((Array.isArray(record.sectors)&&record.sectors.length)||(Array.isArray(record.areas)&&record.areas.length)))}
-function resolveZfwAirportSearch(value){for(const alias of airportLookupAliases(value)){const record=records[alias];if(record&&!isNavLikeRecord(record)&&hasZfwSectorOrArea(record))return {query:alias,record:record}}return null}
-function displayIdentForQuery(query,typed){const clean=String(typed||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");if(clean.length===3&&query==="K"+clean)return clean;return query}
-
 function splitLines(items){return(!items||!items.length)?"":items.filter(Boolean).join("\n")}
-function formatSectorNameFirstToNumberFirst(value){const text=String(value||"").trim();let match=text.match(/^([A-Z]{2,4})(?:-L)?\s+(\d{2})$/);if(match)return `${match[2]} ${match[1]}-L`;match=text.match(/^(\d{2})\s+([A-Z]{2,4})(?:-L)?$/);return match?`${match[1]} ${match[2]}-L`:text}
+function formatSectorNameFirstToNumberFirst(value){const text=String(value||"").trim();const match=text.match(/^([A-Z]{2,4})\s+(\d{2})$/);return match?`${match[2]} ${match[1]}`:text}
 function splitSectorLines(items){return(!items||!items.length)?"":items.filter(Boolean).map(formatSectorNameFirstToNumberFirst).join("\n")}
 function parseHours(hours){const h=(hours||"").trim().toUpperCase();const times=[...h.matchAll(/(\d{4})-(\d{4})/g)].map(m=>[m[1],m[2]]);if(!times.length)return[];let d="ALL";if(h.includes("M-F"))d="M-F";else if(h.includes("SU")&&h.indexOf("SU")<h.indexOf(times[0][0]))d="SU";const w=[[d,times[0][0],times[0][1]]];if(times.length>1)w.push([h.includes("SU")?"SU":"ALL",times[1][0],times[1][1]]);return w}
 function militaryToMinutes(t){const h=Number(t.slice(0,2)),m=Number(t.slice(2));return h===24?1440:h*60+m}
 function dayAllowed(d,n){const x=n.getDay();if(d==="ALL")return true;if(d==="M-F")return x>=1&&x<=5;if(d==="SU")return x===0;return true}
 function isOpen(hours){const w=parseHours(hours);if(!w.length)return false;const n=new Date(),cur=n.getHours()*60+n.getMinutes();return w.some(([d,s,e])=>{if(!dayAllowed(d,n))return false;const sm=militaryToMinutes(s),em=militaryToMinutes(e);return em>=sm?(cur>=sm&&cur<=em):(cur>=sm||cur<=em)})}
-function ensureFdcsGlowStyle(){
-  if(document.getElementById("fdcsGlowStyle"))return;
-  const style=document.createElement("style");
-  style.id="fdcsGlowStyle";
-  style.textContent=`
-    @property --fdcsGreenGlowSize{
-      syntax:"<length>";
-      inherits:false;
-      initial-value:10px;
-    }
-    @property --fdcsGreenGlowAlpha{
-      syntax:"<number>";
-      inherits:false;
-      initial-value:.20;
-    }
-    @keyframes fdcsGreenSlowFadeGlow{
-      0%,100%{
-        --fdcsGreenGlowSize:10px;
-        --fdcsGreenGlowAlpha:.20;
-      }
-      50%{
-        --fdcsGreenGlowSize:26px;
-        --fdcsGreenGlowAlpha:.46;
-      }
-    }
-
-    .fdcs-glow-green{
-      border-color:var(--green)!important;
-      box-shadow:
-        0 0 0 2px rgba(65,209,125,.30),
-        0 0 var(--fdcsGreenGlowSize) rgba(65,209,125,var(--fdcsGreenGlowAlpha)),
-        inset 0 0 0 1px rgba(65,209,125,.18)!important;
-      animation:fdcsGreenSlowFadeGlow 3.8s ease-in-out infinite!important;
-    }
-  `;
-  document.head.appendChild(style);
-}
 function setText(id,v){els[id].textContent=v||"—"}
-function clearClasses(){Object.values(cards).forEach(c=>{c.classList.remove("primary","fdcs-glow-green","fdcs-glow-red");c.style.background="";c.style.borderColor="";c.style.boxShadow=""});Object.values(els).forEach(e=>{e.classList.remove("red-text","green-text","amber-text","cyan-text");e.style.color=""})}
-function highlightFdcsCard(id,color){ensureFdcsGlowStyle();const card=cards[id],el=els[id];if(!card||!el)return;card.classList.remove("fdcs-glow-green","fdcs-glow-red");if(color==="red"){card.style.borderColor="var(--red)";card.style.boxShadow="none";el.classList.add("red-text");return}card.style.borderColor="var(--green)";card.style.boxShadow="";el.classList.add("green-text");card.classList.add("fdcs-glow-green")}
+function clearClasses(){Object.values(cards).forEach(c=>{c.classList.remove("primary");c.style.background="";c.style.borderColor="";c.style.boxShadow=""});Object.values(els).forEach(e=>{e.classList.remove("red-text","green-text","amber-text","cyan-text");e.style.color=""})}
+function highlightFdcsCard(id,color){const card=cards[id],el=els[id];if(!card||!el)return;if(color==="red"){card.style.borderColor="var(--red)";card.style.boxShadow="0 0 0 3px rgba(255,75,75,.28),0 0 18px rgba(255,75,75,.24)";el.classList.add("red-text");return}card.style.borderColor="var(--green)";card.style.boxShadow="0 0 0 3px rgba(65,209,125,.32),0 0 18px rgba(65,209,125,.30)";el.classList.add("green-text")}
 
-function escapeHtml(value){
-  return String(value ?? "").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
-}
 function appKey(appName){
   return String(appName||"").toUpperCase().replace(/\s+APP\b/,"").split(/\s+/)[0].replace(/[^A-Z0-9]/g,"");
 }
@@ -110,41 +63,29 @@ function extractPhoneFromContact(text){
 function buildApproachDetails(apps,vscs,contacts,hours){
   let anyOpen=false;
   let anyClosed=false;
-  const openLines=[];
-  const closedLines=[];
-  const htmlBlocks=[];
+  const approachLines=[];
   const openVscs=[];
   const openPhones=[];
-
   (apps||[]).forEach((appName,index)=>{
     const hour=findAppHour(appName,hours,index);
     const open=isOpen(hour||"");
     const contact=findAppContactSegment(appName,contacts,index);
     const vscsValue=extractVscsFromContact(contact)||vscs[index]||"";
     const phoneValue=extractPhoneFromContact(contact)||extractPhoneFromContact(contacts[index]||"");
-
     if(open){
       anyOpen=true;
-      const lines=[appName,vscsValue?`VSCS: ${vscsValue}`:"",phoneValue?`CD Phone: ${phoneValue}`:""].filter(Boolean);
-      openLines.push(lines.join("\n"));
-      htmlBlocks.push(`<span style="color:var(--green)">${lines.map(escapeHtml).join("<br>")}</span>`);
+      approachLines.push([appName,vscsValue?`VSCS: ${vscsValue}`:"",phoneValue?`CD Phone: ${phoneValue}`:""].filter(Boolean).join("\n"));
       if(vscsValue)openVscs.push(vscsValue);
       if(phoneValue)openPhones.push(phoneValue);
     }else{
       anyClosed=true;
-      const closedText=`${appName} CLOSED`;
-      closedLines.push(closedText);
-      htmlBlocks.push(`<span style="color:var(--red)">${escapeHtml(closedText)}</span>`);
+      approachLines.push(`${appName} CLOSED`);
     }
   });
-
-  const approachValue=openLines.concat(closedLines).filter(Boolean).join("\n");
-
   return {
     appIsOpen:anyOpen,
     anyClosed:anyClosed,
-    approachValue:approachValue,
-    approachHtml:htmlBlocks.filter(Boolean).join("<br>"),
+    approachValue:approachLines.filter(Boolean).join("\n"),
     vscsValue:anyOpen?openVscs.join("\n"):"CLOSED",
     contactValue:anyOpen?openPhones.join("\n"):"CLOSED"
   };
@@ -170,27 +111,28 @@ function updateResults(){
     return;
   }
 
-  const resolved=resolveZfwAirportSearch(upper);
+  const query=normalizeSearch(upper);
+  if(!query)return;
 
-  if(!resolved){
+  const rec=records[query];
+
+  if(!rec){
     if(window.applyAdjacentAirportLookup && window.applyAdjacentAirportLookup(upper)){
       scheduleClear();
       return;
     }
 
-    if(window.clearAdjacentAirportDisplayState){
-      window.clearAdjacentAirportDisplayState();
-    }
-
-    currentMarker=null;
-    drawMap();
     statusEl.textContent=`${upper} not found`;
     statusEl.style.color="var(--red)";
+
+    if(window.zfwUpdateNotFoundButtonHighlight){
+      setTimeout(window.zfwUpdateNotFoundButtonHighlight,0);
+      setTimeout(window.zfwUpdateNotFoundButtonHighlight,150);
+    }
+
+    scheduleClear();
     return;
   }
-
-  const query=resolved.query;
-  const rec=resolved.record;
 
   if(window.clearAdjacentAirportDisplayState){
     window.clearAdjacentAirportDisplayState();
@@ -210,18 +152,14 @@ function updateResults(){
   let contactValue="";
 
   if(apps.length){
-    approachValue=appDetails.approachValue || "CLOSED";
+    approachValue=appDetails.approachValue;
     vscsValue=appDetails.vscsValue;
     contactValue=appDetails.contactValue;
   }
 
   setText("sector",sectorValue);
   setText("area",splitLines(areas));
-  if(appDetails.approachHtml){
-    els.approach.innerHTML=appDetails.approachHtml;
-  }else{
-    setText("approach",approachValue);
-  }
+  setText("approach",approachValue);
   setText("vscs",vscsValue);
   setText("contact",contactValue);
   setText("hours",splitLines(hours));
@@ -233,17 +171,11 @@ function updateResults(){
 
   if(apps.length&&appIsOpen){
     highlightFdcsCard("approach","green");
-    els.sector.classList.add("red-text");
-    cards.sector.style.borderColor="var(--red)";
-    cards.sector.style.boxShadow="none";
     statusEl.textContent=`${upper} found`;
     statusEl.style.color="var(--green)";
   }else{
     if(apps.length){
       highlightFdcsCard("approach","red");
-      if(vscsValue==="CLOSED")els.vscs.classList.add("red-text");
-      if(contactValue==="CLOSED")els.contact.classList.add("red-text");
-      if(sectors.length)highlightFdcsCard("sector","green");
       statusEl.textContent=`${upper} found`;
       statusEl.style.color="var(--red)";
     }else{
@@ -253,7 +185,7 @@ function updateResults(){
     }
   }
 
-  currentMarker={ident:displayIdentForQuery(query,typed),lat:rec.lat,lon:rec.lon};
+  currentMarker={ident:query,lat:rec.lat,lon:rec.lon};
   drawMap();
   scheduleClear()
 }
@@ -332,27 +264,20 @@ function drawMap() {
     const x = padX + xNorm * mapW;
     const y = padY + yNorm * mapH;
 
-    ctx.save();
-    ctx.shadowColor = "rgba(102, 200, 255, 0.90)";
-    ctx.shadowBlur = 18;
-
     ctx.beginPath();
-    ctx.arc(x, y, 7, 0, Math.PI * 2);
-    ctx.fillStyle = "#d8f4ff";
+    ctx.arc(x, y, 9, 0, Math.PI * 2);
+    ctx.fillStyle = AMBER;
     ctx.fill();
-
     ctx.lineWidth = 2;
-    ctx.strokeStyle = "#66c8ff";
+    ctx.strokeStyle = WHITE;
     ctx.stroke();
 
-    ctx.restore();
-
     ctx.beginPath();
-    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
     ctx.fillStyle = WHITE;
     ctx.fill();
 
-    ctx.fillStyle = "#d8f4ff";
+    ctx.fillStyle = AMBER;
     ctx.font = "bold 13px Consolas";
     ctx.fillText(currentMarker.ident, x + 15, y - 11);
   } else {
@@ -364,5 +289,4 @@ function drawMap() {
   }
 }
 
-window.ZFW_CLEAR_MAP_MARKER=function(){currentMarker=null;drawMap()};
 input.addEventListener("input",updateResults);input.addEventListener("keydown",e=>{if(e.key==="Enter"){updateResults();input.select();e.preventDefault()}});window.addEventListener("resize",drawMap);setInterval(updateZuluClock,1000);updateZuluClock();statusEl.textContent=`${Object.keys(records).length} AIRPORTS LOADED`;drawMap();input.focus();

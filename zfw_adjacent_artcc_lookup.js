@@ -386,6 +386,8 @@
 
       button.addEventListener("pointerdown", handler, true);
       button.addEventListener("click", handler, true);
+
+      button.dataset.zfwNonZfwCaptureBound = "true";
     }
   }
 

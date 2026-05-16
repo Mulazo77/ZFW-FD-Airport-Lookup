@@ -1467,19 +1467,27 @@ const corrections = loadCorrections();
     style.textContent = `
       @keyframes zfwNotFoundButtonGlow {
         0%, 100% {
-          border-color: var(--green);
-          box-shadow: 0 0 0 2px rgba(65, 209, 125, 0.20), 0 0 10px rgba(65, 209, 125, 0.18);
+          outline-color: rgba(65, 209, 125, 0.55);
+          box-shadow:
+            0 0 0 2px rgba(65, 209, 125, 0.35),
+            0 0 10px rgba(65, 209, 125, 0.25),
+            inset 0 0 0 1px rgba(65, 209, 125, 0.30);
         }
 
         50% {
-          border-color: var(--green);
-          box-shadow: 0 0 0 4px rgba(65, 209, 125, 0.46), 0 0 24px rgba(65, 209, 125, 0.42);
+          outline-color: rgba(65, 209, 125, 1);
+          box-shadow:
+            0 0 0 5px rgba(65, 209, 125, 0.60),
+            0 0 28px rgba(65, 209, 125, 0.70),
+            inset 0 0 0 2px rgba(65, 209, 125, 0.65);
         }
       }
 
       #correctionTools button.zfw-not-found-action {
         border: 2px solid var(--green) !important;
-        animation: zfwNotFoundButtonGlow 2.4s ease-in-out infinite !important;
+        outline: 3px solid rgba(65, 209, 125, 0.85) !important;
+        outline-offset: 4px !important;
+        animation: zfwNotFoundButtonGlow 2.1s ease-in-out infinite !important;
       }
     `;
     document.head.appendChild(style);
@@ -1542,4 +1550,42 @@ const corrections = loadCorrections();
   setTimeout(watchNotFoundStatus, 250);
   setTimeout(watchNotFoundStatus, 750);
   setInterval(zfwUpdateNotFoundButtonHighlight, 1000);
+})();
+
+
+/* Capture-level correction button opening so active search text cannot block buttons */
+(function () {
+  "use strict";
+
+  function zfwBindActionButtonsCapture() {
+    const airportButton = document.getElementById("amendAirportButton");
+    if (airportButton && airportButton.dataset.zfwCaptureBound !== "true") {
+      airportButton.dataset.zfwCaptureBound = "true";
+      airportButton.addEventListener("pointerdown", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof openModal === "function") openModal("add");
+      }, true);
+    }
+
+    const pirepButton = document.getElementById("addPirepNavButton");
+    if (pirepButton && pirepButton.dataset.zfwCaptureBound !== "true") {
+      pirepButton.dataset.zfwCaptureBound = "true";
+      pirepButton.addEventListener("pointerdown", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof openPirepModal === "function") openPirepModal();
+      }, true);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", zfwBindActionButtonsCapture);
+  } else {
+    zfwBindActionButtonsCapture();
+  }
+
+  setTimeout(zfwBindActionButtonsCapture, 250);
+  setTimeout(zfwBindActionButtonsCapture, 750);
+  setTimeout(zfwBindActionButtonsCapture, 1500);
 })();

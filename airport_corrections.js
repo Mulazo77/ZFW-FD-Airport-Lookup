@@ -389,6 +389,10 @@
     input.focus();
   }
 
+  window.ZFW_OPEN_AIRPORT_CORRECTION_MODAL = function () {
+    openModal("add");
+  };
+
   function bindAirportCorrectionButton() {
     const button = document.getElementById("amendAirportButton");
     if (button && button.dataset.airportCorrectionBound !== "true") {
@@ -732,6 +736,21 @@
     return window.AIRPORT_DATA.records;
   }
 
+  function isAirportRecord(record) {
+    if (!record) return false;
+
+    const type = String(record.record_type || record.type || "").toUpperCase();
+    if (type === "AIRPORT") return true;
+    if (["NAVAID", "WAYPOINT", "FIX", "VOR", "VORTAC", "NDB"].includes(type)) return false;
+
+    return Boolean(
+      (Array.isArray(record.sectors) && record.sectors.length) ||
+      (Array.isArray(record.apps) && record.apps.length) ||
+      (Array.isArray(record.vscs) && record.vscs.length) ||
+      (Array.isArray(record.hours) && record.hours.length)
+    );
+  }
+
   function getNavData() {
     if (!window.ZFW_NAV_DATA) window.ZFW_NAV_DATA = {};
     return window.ZFW_NAV_DATA;
@@ -1045,6 +1064,11 @@ const corrections = loadCorrections();
       setTimeout(closePirepModal, 700);
     });
   }
+
+  window.ZFW_OPEN_PIREP_NAV_MODAL = function () {
+    createPirepUi();
+    openPirepModal();
+  };
 
   applySavedPirepCorrections();
 
@@ -1557,35 +1581,67 @@ const corrections = loadCorrections();
 (function () {
   "use strict";
 
-  function zfwBindActionButtonsCapture() {
+  function openByButtonId(id) {
+    if (id === "amendAirportButton") {
+      if (typeof window.ZFW_OPEN_AIRPORT_CORRECTION_MODAL === "function") {
+        window.ZFW_OPEN_AIRPORT_CORRECTION_MODAL();
+        return true;
+      }
+    }
+
+    if (id === "addPirepNavButton") {
+      if (typeof window.ZFW_OPEN_PIREP_NAV_MODAL === "function") {
+        window.ZFW_OPEN_PIREP_NAV_MODAL();
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function captureButtonPress(event) {
+    const button = event.target && event.target.closest
+      ? event.target.closest("#amendAirportButton, #addPirepNavButton")
+      : null;
+
+    if (!button) return;
+
+    if (openByButtonId(button.id)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    }
+  }
+
+  document.addEventListener("pointerdown", captureButtonPress, true);
+  document.addEventListener("mousedown", captureButtonPress, true);
+  document.addEventListener("click", captureButtonPress, true);
+})();
+
+
+/* Self-heal static correction buttons if any script/state change replaces or unbinds them */
+(function () {
+  "use strict";
+
+  function zfwSelfHealCorrectionButtons() {
     const airportButton = document.getElementById("amendAirportButton");
-    if (airportButton && airportButton.dataset.zfwCaptureBound !== "true") {
-      airportButton.dataset.zfwCaptureBound = "true";
-      airportButton.addEventListener("pointerdown", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (typeof openModal === "function") openModal("add");
-      }, true);
+    if (airportButton && typeof window.ZFW_OPEN_AIRPORT_CORRECTION_MODAL === "function") {
+      airportButton.disabled = false;
+      airportButton.style.pointerEvents = "auto";
     }
 
     const pirepButton = document.getElementById("addPirepNavButton");
-    if (pirepButton && pirepButton.dataset.zfwCaptureBound !== "true") {
-      pirepButton.dataset.zfwCaptureBound = "true";
-      pirepButton.addEventListener("pointerdown", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (typeof openPirepModal === "function") openPirepModal();
-      }, true);
+    if (pirepButton && typeof window.ZFW_OPEN_PIREP_NAV_MODAL === "function") {
+      pirepButton.disabled = false;
+      pirepButton.style.pointerEvents = "auto";
     }
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", zfwBindActionButtonsCapture);
+    document.addEventListener("DOMContentLoaded", zfwSelfHealCorrectionButtons);
   } else {
-    zfwBindActionButtonsCapture();
+    zfwSelfHealCorrectionButtons();
   }
 
-  setTimeout(zfwBindActionButtonsCapture, 250);
-  setTimeout(zfwBindActionButtonsCapture, 750);
-  setTimeout(zfwBindActionButtonsCapture, 1500);
+  setInterval(zfwSelfHealCorrectionButtons, 500);
 })();

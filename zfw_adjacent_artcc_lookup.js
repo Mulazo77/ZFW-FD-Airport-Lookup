@@ -371,6 +371,11 @@
     if(modal) modal.setAttribute("aria-hidden", "true");
   }
 
+  window.ZFW_OPEN_NON_ZFW_MODAL = function(){
+    createModal();
+    openModal();
+  };
+
   function attachStaticButton(){
     const button = document.getElementById("addNonZfwAirportButton");
     if(button && button.dataset.nonZfwBound !== "true"){
@@ -416,4 +421,37 @@
   }else{
     boot();
   }
+})();
+
+
+/* Capture-level Non-ZFW button opening so active search text cannot block it */
+(function(){
+  "use strict";
+
+  function captureNonZfwButtonPress(event){
+    const button = event.target && event.target.closest
+      ? event.target.closest("#addNonZfwAirportButton")
+      : null;
+
+    if(!button) return;
+
+    if(typeof window.ZFW_OPEN_NON_ZFW_MODAL === "function"){
+      event.preventDefault();
+      event.stopPropagation();
+      if(event.stopImmediatePropagation) event.stopImmediatePropagation();
+      window.ZFW_OPEN_NON_ZFW_MODAL();
+    }
+  }
+
+  document.addEventListener("pointerdown", captureNonZfwButtonPress, true);
+  document.addEventListener("mousedown", captureNonZfwButtonPress, true);
+  document.addEventListener("click", captureNonZfwButtonPress, true);
+
+  setInterval(function(){
+    const button = document.getElementById("addNonZfwAirportButton");
+    if(button){
+      button.disabled = false;
+      button.style.pointerEvents = "auto";
+    }
+  }, 500);
 })();

@@ -25,6 +25,9 @@ function setText(id,v){els[id].textContent=v||"—"}
 function clearClasses(){Object.values(cards).forEach(c=>{c.classList.remove("primary");c.style.background="";c.style.borderColor="";c.style.boxShadow=""});Object.values(els).forEach(e=>{e.classList.remove("red-text","green-text","amber-text","cyan-text");e.style.color=""})}
 function highlightFdcsCard(id,color){const card=cards[id],el=els[id];if(!card||!el)return;if(color==="red"){card.style.borderColor="var(--red)";card.style.boxShadow="0 0 0 3px rgba(255,75,75,.28),0 0 18px rgba(255,75,75,.24)";el.classList.add("red-text");return}card.style.borderColor="var(--green)";card.style.boxShadow="0 0 0 3px rgba(65,209,125,.32),0 0 18px rgba(65,209,125,.30)";el.classList.add("green-text")}
 
+function escapeHtml(value){
+  return String(value ?? "").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+}
 function appKey(appName){
   return String(appName||"").toUpperCase().replace(/\s+APP\b/,"").split(/\s+/)[0].replace(/[^A-Z0-9]/g,"");
 }
@@ -65,8 +68,10 @@ function buildApproachDetails(apps,vscs,contacts,hours){
   let anyClosed=false;
   const openLines=[];
   const closedLines=[];
+  const htmlBlocks=[];
   const openVscs=[];
   const openPhones=[];
+
   (apps||[]).forEach((appName,index)=>{
     const hour=findAppHour(appName,hours,index);
     const open=isOpen(hour||"");
@@ -76,12 +81,16 @@ function buildApproachDetails(apps,vscs,contacts,hours){
 
     if(open){
       anyOpen=true;
-      openLines.push([appName,vscsValue?`VSCS: ${vscsValue}`:"",phoneValue?`CD Phone: ${phoneValue}`:""].filter(Boolean).join("\n"));
+      const lines=[appName,vscsValue?`VSCS: ${vscsValue}`:"",phoneValue?`CD Phone: ${phoneValue}`:""].filter(Boolean);
+      openLines.push(lines.join("\n"));
+      htmlBlocks.push(`<span style="color:var(--green)">${lines.map(escapeHtml).join("<br>")}</span>`);
       if(vscsValue)openVscs.push(vscsValue);
       if(phoneValue)openPhones.push(phoneValue);
     }else{
       anyClosed=true;
-      closedLines.push(`${appName} CLOSED`);
+      const closedText=`${appName} CLOSED`;
+      closedLines.push(closedText);
+      htmlBlocks.push(`<span style="color:var(--red)">${escapeHtml(closedText)}</span>`);
     }
   });
 
@@ -91,6 +100,7 @@ function buildApproachDetails(apps,vscs,contacts,hours){
     appIsOpen:anyOpen,
     anyClosed:anyClosed,
     approachValue:approachValue,
+    approachHtml:htmlBlocks.filter(Boolean).join("<br>"),
     vscsValue:anyOpen?openVscs.join("\n"):"CLOSED",
     contactValue:anyOpen?openPhones.join("\n"):"CLOSED"
   };
@@ -157,7 +167,11 @@ function updateResults(){
 
   setText("sector",sectorValue);
   setText("area",splitLines(areas));
-  setText("approach",approachValue);
+  if(appDetails.approachHtml){
+    els.approach.innerHTML=appDetails.approachHtml;
+  }else{
+    setText("approach",approachValue);
+  }
   setText("vscs",vscsValue);
   setText("contact",contactValue);
   setText("hours",splitLines(hours));

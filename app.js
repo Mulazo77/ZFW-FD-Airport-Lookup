@@ -14,8 +14,14 @@ const els={sector:document.getElementById("sector"),area:document.getElementById
 const cards={sector:document.getElementById("sectorCard"),area:document.getElementById("areaCard"),approach:document.getElementById("approachCard"),vscs:document.getElementById("vscsCard"),contact:document.getElementById("contactCard"),hours:document.getElementById("hoursCard"),airportName:document.getElementById("airportNameCard")};
 function normalizeSearch(v){const s=(v||"").trim().toUpperCase();return(s.length===3&&/^[A-Z]+$/.test(s))?"K"+s:s}
 function isCompleteLookupInput(v){const s=String(v||"").trim().toUpperCase();return /^[A-Z0-9]{3}$/.test(s)||/^K[A-Z0-9]{3}$/.test(s)||/^[A-Z0-9]{5}$/.test(s)}
+function isNavLikeRecord(record){const type=String((record&&(record.record_type||record.type))||"").toUpperCase();return ["NAVAID","WAYPOINT","FIX","VOR","VORTAC","NDB"].includes(type)}
+function uniqueList(items){return [...new Set(items.filter(Boolean))]}
+function airportLookupAliases(value){const s=String(value||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");if(/^K[A-Z0-9]{3}$/.test(s))return uniqueList([s,s.slice(1)]);if(/^[A-Z]{3}$/.test(s))return uniqueList(["K"+s,s]);if(/^[A-Z0-9]{3}$/.test(s))return uniqueList([s,"K"+s]);return [s]}
+function resolveZfwAirportSearch(value){for(const alias of airportLookupAliases(value)){const record=records[alias];if(record&&!isNavLikeRecord(record))return {query:alias,record:record}}return null}
+function displayIdentForQuery(query,typed){const clean=String(typed||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");if(clean.length===3&&query==="K"+clean)return clean;return query}
+
 function splitLines(items){return(!items||!items.length)?"":items.filter(Boolean).join("\n")}
-function formatSectorNameFirstToNumberFirst(value){const text=String(value||"").trim();const match=text.match(/^([A-Z]{2,4})\s+(\d{2})$/);return match?`${match[2]} ${match[1]}`:text}
+function formatSectorNameFirstToNumberFirst(value){const text=String(value||"").trim();let match=text.match(/^([A-Z]{2,4})(?:-L)?\s+(\d{2})$/);if(match)return `${match[2]} ${match[1]}-L`;match=text.match(/^(\d{2})\s+([A-Z]{2,4})(?:-L)?$/);return match?`${match[1]} ${match[2]}-L`:text}
 function splitSectorLines(items){return(!items||!items.length)?"":items.filter(Boolean).map(formatSectorNameFirstToNumberFirst).join("\n")}
 function parseHours(hours){const h=(hours||"").trim().toUpperCase();const times=[...h.matchAll(/(\d{4})-(\d{4})/g)].map(m=>[m[1],m[2]]);if(!times.length)return[];let d="ALL";if(h.includes("M-F"))d="M-F";else if(h.includes("SU")&&h.indexOf("SU")<h.indexOf(times[0][0]))d="SU";const w=[[d,times[0][0],times[0][1]]];if(times.length>1)w.push([h.includes("SU")?"SU":"ALL",times[1][0],times[1][1]]);return w}
 function militaryToMinutes(t){const h=Number(t.slice(0,2)),m=Number(t.slice(2));return h===24?1440:h*60+m}
@@ -153,12 +159,9 @@ function updateResults(){
     return;
   }
 
-  const query=normalizeSearch(upper);
-  if(!query)return;
+  const resolved=resolveZfwAirportSearch(upper);
 
-  const rec=records[query];
-
-  if(!rec){
+  if(!resolved){
     if(window.applyAdjacentAirportLookup && window.applyAdjacentAirportLookup(upper)){
       scheduleClear();
       return;
@@ -170,6 +173,9 @@ function updateResults(){
     statusEl.style.color="var(--red)";
     return;
   }
+
+  const query=resolved.query;
+  const rec=resolved.record;
 
   if(window.clearAdjacentAirportDisplayState){
     window.clearAdjacentAirportDisplayState();
@@ -230,7 +236,7 @@ function updateResults(){
     }
   }
 
-  currentMarker={ident:query,lat:rec.lat,lon:rec.lon};
+  currentMarker={ident:displayIdentForQuery(query,typed),lat:rec.lat,lon:rec.lon};
   drawMap();
   scheduleClear()
 }

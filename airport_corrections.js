@@ -1109,10 +1109,22 @@ const corrections = loadCorrections();
     return String(value || "").trim().toUpperCase();
   }
 
+  function displayOptionLabel(value) {
+    const raw = String(value || "");
+
+    let match = raw.match(/^([A-Z]{2,4})\s+(\d{2})$/);
+    if (match) return `${match[1]}-L ${match[2]}`;
+
+    match = raw.match(/^(\d{2})\s+([A-Z]{2,4})$/);
+    if (match) return `${match[2]}-L ${match[1]}`;
+
+    return raw.replace(/\bAPP\b/g, "Approach");
+  }
+
   function optionHtml(values, selected) {
     selected = normalizeIdent(selected);
     return values.map(function (value) {
-      const label = value ? String(value).replace(/\bAPP\b/g, "Approach") : "";
+      const label = value ? displayOptionLabel(value) : "";
       const sel = normalizeIdent(value) === selected ? " selected" : "";
       return `<option value="${value}"${sel}>${label || "Select"}</option>`;
     }).join("");
@@ -1214,7 +1226,9 @@ const corrections = loadCorrections();
 
 
   function areaFromSectorValue(sectorValue) {
-    const sector = String(sectorValue || "").toUpperCase().trim();
+    const sector = String(sectorValue || "").toUpperCase().trim()
+      .replace(/^([A-Z]{2,4})-L\s+(\d{2})$/, "$1 $2")
+      .replace(/^(\d{2})\s+([A-Z]{2,4})-L$/, "$2 $1");
 
     // Operational area mapping. Area names are the six ZFW areas;
     // they are not airport identifiers or sector identifiers.

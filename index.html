@@ -911,8 +911,11 @@
 
       function formatSectorNameFirstToNumberFirst(value) {
         const text = String(value || "").trim();
-        const match = text.match(/^([A-Z]{2,4})\s+(\d{2})$/);
-        return match ? match[2] + " " + match[1] : text;
+        let match = text.match(/^([A-Z]{2,4})(?:-L)?\s+(\d{2})$/);
+        if (match) return match[2] + " " + match[1] + "-L";
+
+        match = text.match(/^(\d{2})\s+([A-Z]{2,4})(?:-L)?$/);
+        return match ? match[1] + " " + match[2] + "-L" : text;
       }
 
       function splitSectorOutput(items) {

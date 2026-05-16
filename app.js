@@ -26,32 +26,28 @@ function ensureFdcsGlowStyle(){
   const style=document.createElement("style");
   style.id="fdcsGlowStyle";
   style.textContent=`
-    @keyframes fdcsGreenOrbit{
-      from{transform:rotate(0deg)}
-      to{transform:rotate(360deg)}
+    @property --fdcsGlowAngle{
+      syntax:"<angle>";
+      inherits:false;
+      initial-value:0deg;
+    }
+    @keyframes fdcsGreenBorderOrbit{
+      to{--fdcsGlowAngle:360deg}
     }
     .fdcs-glow-green{
-      position:relative;
-      overflow:hidden;
-      border-color:var(--green)!important;
-      box-shadow:0 0 12px rgba(65,209,125,.28)!important;
-    }
-    .fdcs-glow-green::before{
-      content:"";
-      position:absolute;
-      inset:-3px;
-      border-radius:inherit;
-      padding:3px;
-      background:conic-gradient(from 0deg, transparent 0deg, transparent 245deg, rgba(65,209,125,.25) 285deg, var(--green) 320deg, transparent 360deg);
-      animation:fdcsGreenOrbit 2.4s linear infinite;
-      pointer-events:none;
-      -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite:xor;
-      mask-composite:exclude;
-    }
-    .fdcs-glow-green > *{
-      position:relative;
-      z-index:1;
+      --fdcsGlowAngle:0deg;
+      border:2px solid transparent!important;
+      background:
+        linear-gradient(var(--card),var(--card)) padding-box,
+        conic-gradient(from var(--fdcsGlowAngle),
+          rgba(65,209,125,.12) 0deg,
+          rgba(65,209,125,.12) 245deg,
+          rgba(65,209,125,.55) 285deg,
+          var(--green) 320deg,
+          rgba(65,209,125,.12) 360deg
+        ) border-box!important;
+      box-shadow:0 0 12px rgba(65,209,125,.24)!important;
+      animation:fdcsGreenBorderOrbit 2.8s linear infinite;
     }
   `;
   document.head.appendChild(style);

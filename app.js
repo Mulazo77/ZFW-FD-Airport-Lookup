@@ -173,6 +173,8 @@ function updateResults(){
       return;
     }
 
+    currentMarker=null;
+    drawMap();
     statusEl.textContent=`${upper} not found`;
     statusEl.style.color="var(--red)";
     return;
@@ -340,4 +342,5 @@ function drawMap() {
   }
 }
 
+window.ZFW_CLEAR_MAP_MARKER=function(){currentMarker=null;drawMap()};
 input.addEventListener("input",updateResults);input.addEventListener("keydown",e=>{if(e.key==="Enter"){updateResults();input.select();e.preventDefault()}});window.addEventListener("resize",drawMap);setInterval(updateZuluClock,1000);updateZuluClock();statusEl.textContent=`${Object.keys(records).length} AIRPORTS LOADED`;drawMap();input.focus();

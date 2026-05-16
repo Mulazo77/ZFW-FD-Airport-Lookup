@@ -28,21 +28,6 @@
     return [ident];
   }
 
-  function getAdjacentRecord(ident){
-    const airports = window.ZFW_ADJACENT_ARTCC_AIRPORTS?.airports || {};
-
-    for(const alias of aliasesFor(ident)){
-      if(airports[alias]){
-        return {
-          ident: alias.startsWith("K") ? alias.slice(1) : alias,
-          record: airports[alias]
-        };
-      }
-    }
-
-    return null;
-  }
-
   function hasZfwSectorOrArea(record){
     return !!(
       record &&
@@ -59,6 +44,32 @@
     for(const alias of aliasesFor(ident)){
       const record = records[alias];
       if(record && hasZfwSectorOrArea(record)) return record;
+    }
+
+    return null;
+  }
+
+  function getAdjacentRecord(ident){
+    const db = window.ZFW_ADJACENT_ARTCC_AIRPORTS || {};
+    const airports = db.airports || {};
+    const dcs = db.dcs_center_lookup || {};
+
+    for(const alias of aliasesFor(ident)){
+      if(airports[alias]){
+        return {
+          ident: alias.startsWith("K") ? alias.slice(1) : alias,
+          record: airports[alias],
+          source: "adjacent"
+        };
+      }
+
+      if(dcs[alias]){
+        return {
+          ident: alias.startsWith("K") ? alias.slice(1) : alias,
+          record: dcs[alias],
+          source: "dcs"
+        };
+      }
     }
 
     return null;
@@ -102,13 +113,6 @@
   function clearMapMarker(){
     if(typeof window.ZFW_CLEAR_MAP_MARKER === "function"){
       window.ZFW_CLEAR_MAP_MARKER();
-      return;
-    }
-
-    const map = document.getElementById("zfwMap");
-    const ctx = map?.getContext?.("2d");
-    if(ctx && map){
-      ctx.clearRect(0, 0, map.width, map.height);
     }
   }
 
@@ -143,6 +147,7 @@
     const displayIdent = adjacent.ident;
 
     activeAdjacentIdent = displayIdent;
+    window.ZFW_ADJACENT_LOOKUP_ACTIVE = true;
 
     clearHighlights();
     clearMapMarker();
@@ -175,9 +180,6 @@
       return false;
     }
 
-    // ZFW airport records always take priority over adjacent ARTCC records.
-    // This prevents ZFW airports such as MLU, TXK, OKC, MAF, and ELD from
-    // being treated as outside-ZFW airports if they appear in the adjacent list.
     if(getZfwRecord(ident)){
       return false;
     }
@@ -193,77 +195,10 @@
 
   function clearAdjacentAirportDisplayState(){
     activeAdjacentIdent = "";
-  }
-
-  function handleInput(){
-    const input = document.getElementById("airportInput");
-    if(!input) return;
-
-    const ident = normalizeIdent(input.value);
-
-    if(!ident){
-      return;
-    }
-
-    if(ident.length < 3){
-      return;
-    }
-
-    if(!isCompleteAirportIdent(ident)){
-      return;
-    }
-
-    if(getZfwRecord(ident)){
-      activeAdjacentIdent = "";
-      return;
-    }
-
-    const adjacent = getAdjacentRecord(ident);
-    if(adjacent){
-      [0, 100, 250].forEach(delay => {
-        setTimeout(() => showAdjacent(ident, adjacent), delay);
-      });
-      return;
-    }
-  }
-
-  function boot(){
-    const input = document.getElementById("airportInput");
-
-    if(input){
-      ["input", "change", "keyup", "blur"].forEach(evt => input.addEventListener(evt, handleInput));
-    }
-
-    setInterval(() => {
-      const input = document.getElementById("airportInput");
-      const typed = normalizeIdent(input?.value || "");
-
-      if(typed && isCompleteAirportIdent(typed)){
-        if(getZfwRecord(typed)){
-          activeAdjacentIdent = "";
-          return;
-        }
-
-        const adjacent = getAdjacentRecord(typed);
-        if(adjacent){
-          showAdjacent(typed, adjacent);
-          return;
-        }
-      }
-
-      if(activeAdjacentIdent){
-        setText("nearestWeather", "—");
-        clearMapMarker();
-      }
-    }, 200);
+    window.ZFW_ADJACENT_LOOKUP_ACTIVE = false;
   }
 
   window.applyAdjacentAirportLookup = applyAdjacentAirportLookup;
   window.clearAdjacentAirportDisplayState = clearAdjacentAirportDisplayState;
-
-  if(document.readyState === "loading"){
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
-  }
+  window.ZFW_ADJACENT_LOOKUP_ACTIVE = false;
 })();

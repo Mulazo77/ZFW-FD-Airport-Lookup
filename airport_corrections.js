@@ -567,7 +567,6 @@
             <div class="correction-field">
               <label for="corrSectors">Sector</label>
               <input id="corrSectors" name="sectors" type="text" placeholder="LBB L, LBB-L, LBB 64, or 64" />
-              <div class="correction-help">Common shorthand is accepted and normalized.</div>
             </div>
 
             <div class="correction-field">
@@ -589,7 +588,6 @@
             <div class="correction-field full">
               <label for="corrContacts">APP Contact / Notes</label>
               <textarea id="corrContacts" name="contacts" placeholder="Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)"></textarea>
-              <div class="correction-help">Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)</div>
             </div>
 
             <div class="correction-field">
@@ -828,28 +826,52 @@
     return { ident, record };
   }
 
+  function currentSearchOrStatusIdent() {
+    const input = document.getElementById("airportInput");
+    const fromInput = normalizeIdent(input ? input.value : "");
+
+    if (fromInput) {
+      return fromInput;
+    }
+
+    const status = document.getElementById("status");
+    const statusText = status ? String(status.textContent || "").trim().toUpperCase() : "";
+    const statusMatch = statusText.match(/^([A-Z0-9]{3,5})\s+(?:NOT\s+FOUND|FOUND)\b/);
+
+    return statusMatch ? normalizeIdent(statusMatch[1]) : "";
+  }
+
   function openPirepModal() {
     const modal = document.getElementById("pirepNavModal");
     const form = document.getElementById("pirepNavForm");
-    const input = document.getElementById("airportInput");
 
     clearPirepForm(form);
     showPirepMessage("", false);
 
-    const currentIdent = normalizeIdent(input ? input.value : "");
+    const currentIdent = currentSearchOrStatusIdent();
+
     if (currentIdent) {
       const existing = findExistingRecord(currentIdent);
-      if (existing) {
+
+      if (existing && !isAirportRecord(existing)) {
         fillPirepForm(form, currentIdent, existing);
         showPirepMessage("Existing waypoint/navaid loaded. Saving will replace the old data.", false);
       } else {
         form.identifier.value = currentIdent;
+        form.recordType.value = currentIdent.length === 5 ? "WAYPOINT" : "NAVAID";
+        showPirepMessage("New waypoint/navaid ready to add. Enter the nearest weather reporting station and save.", false);
       }
     }
 
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("correction-modal-open");
-    setTimeout(function () { form.identifier.focus(); }, 0);
+    setTimeout(function () {
+      if (form.identifier.value && !form.nearestWx.value) {
+        form.nearestWx.focus();
+      } else {
+        form.identifier.focus();
+      }
+    }, 0);
   }
 
   function closePirepModal() {
@@ -874,11 +896,19 @@
     input.focus();
   }
 
+  function reopenOrCreatePirepModal() {
+    if (!document.getElementById("pirepNavModal")) {
+      createPirepUi();
+    }
+
+    openPirepModal();
+  }
+
   function bindPirepNavButton() {
     const button = document.getElementById("addPirepNavButton");
     if (button && button.dataset.pirepNavBound !== "true") {
       button.dataset.pirepNavBound = "true";
-      button.addEventListener("click", openPirepModal);
+      button.addEventListener("click", reopenOrCreatePirepModal);
     }
   }
 

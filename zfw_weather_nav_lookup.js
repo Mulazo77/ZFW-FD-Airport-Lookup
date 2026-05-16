@@ -266,18 +266,82 @@
 
   function clearAirportOutputsForNav(record){
     if(!record || !isNavType(record)) return;
-    ["sector","area","approach","appVscs","appContact","appHours"].forEach(id => {
+
+    const idsToClear = [
+      "sector",
+      "area",
+      "approach",
+      "vscs",
+      "contact",
+      "hours",
+      "appVscs",
+      "appContact",
+      "appHours"
+    ];
+
+    idsToClear.forEach(id => {
       const el = document.getElementById(id);
-      if(el){ el.textContent = "—"; el.innerHTML = "—"; el.title = ""; }
-      const card = el ? el.closest(".card") : null;
-      if(card){ card.classList.remove("nearest-wx-highlight","highlight","active","warning"); card.style.borderColor = ""; card.style.boxShadow = ""; }
+      if(!el) return;
+
+      el.textContent = "—";
+      el.innerHTML = "—";
+      el.title = "";
+      el.style.color = "";
+      el.classList.remove("red-text", "green-text", "amber-text", "cyan-text", "omic-green-text", "omic-red-text");
+
+      const card = el.closest(".card");
+      if(card){
+        card.classList.remove(
+          "nearest-wx-highlight",
+          "highlight",
+          "active",
+          "warning",
+          "primary",
+          "omic-green-highlight",
+          "omic-red-highlight"
+        );
+        card.style.background = "";
+        card.style.borderColor = "";
+        card.style.boxShadow = "";
+
+        const title = card.querySelector(".card-title");
+        if(title) title.style.color = "";
+      }
     });
+
     const nameEl = document.getElementById("airportName");
-    if(nameEl) nameEl.textContent = record.airport_name || record.name || lastLookupIdent || "Navaid/Waypoint";
+    if(nameEl){
+      nameEl.textContent = record.airport_name || record.name || lastLookupIdent || "Navaid/Waypoint";
+      nameEl.classList.remove("red-text", "green-text", "amber-text");
+      nameEl.classList.add("cyan-text");
+    }
+
     document.querySelectorAll(".card").forEach(card => {
       const isNearest = card.contains(document.getElementById("nearestWeather"));
-      if(!isNearest){ card.classList.remove("nearest-wx-highlight","highlight","active","warning"); card.style.borderColor = ""; card.style.boxShadow = ""; }
+      if(!isNearest){
+        card.classList.remove(
+          "nearest-wx-highlight",
+          "highlight",
+          "active",
+          "warning",
+          "primary",
+          "omic-green-highlight",
+          "omic-red-highlight"
+        );
+        card.style.background = "";
+        card.style.borderColor = "";
+        card.style.boxShadow = "";
+
+        card.querySelectorAll(".card-value").forEach(value => {
+          value.classList.remove("red-text", "green-text", "amber-text", "cyan-text", "omic-green-text", "omic-red-text");
+          value.style.color = "";
+        });
+
+        const title = card.querySelector(".card-title");
+        if(title) title.style.color = "";
+      }
     });
+
     hideMapForNav(record);
   }
 

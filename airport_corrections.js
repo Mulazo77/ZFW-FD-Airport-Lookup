@@ -97,21 +97,20 @@
 
   const SECTOR_TO_AREA = {
     "LBB 64": "RDR",
-    "POS 32": "RDR",
-    "MAF 40": "JEN",
-    "ABI 63": "JEN",
-    "EDN 62": "JEN",
-    "ACT 96": "DAL",
-    "UIM 83": "DAL",
-    "TXK 27": "DAL",
     "SPS 34": "UKW",
     "OKC 35": "UKW",
     "UKW 75": "UKW",
-    "FRI 53": "BYP",
-    "MLC 38": "BYP",
+    "ABI 63": "JEN",
+    "EDN 62": "JEN",
+    "MAF 40": "JEN",
     "SEA 37": "BYP",
-    "DON 29": "CQY",
-    "MLU 30": "CQY"
+    "MLC 38": "BYP",
+    "FRI 53": "BYP",
+    "UIM 83": "BYP",
+    "DON 29": "DAL",
+    "POS 32": "DAL",
+    "TXK 27": "BYP",
+    "MLU 30": "BYP"
   };
 
   function getRecords() {
@@ -241,7 +240,7 @@
   function normalizeApps(value) {
     return dedupe(
       splitList(value).map((item) => {
-        let app = item.toUpperCase().trim().replace(/\bAPPROACH\b/g, "APP");
+        let app = item.toUpperCase().trim();
         if (!app) return "";
         if (!app.endsWith("APP") && app !== "D10") app += " APP";
         if (app === "D10") app = "D10 APP";
@@ -390,7 +389,17 @@
     input.focus();
   }
 
+  function bindAirportCorrectionButton() {
+    const button = document.getElementById("amendAirportButton");
+    if (button && button.dataset.airportCorrectionBound !== "true") {
+      button.dataset.airportCorrectionBound = "true";
+      button.addEventListener("click", function () { openModal("add"); });
+    }
+  }
+
   function createCorrectionUi() {
+    bindAirportCorrectionButton();
+
     if (document.getElementById("correctionModal")) return;
 
     const style = document.createElement("style");
@@ -540,7 +549,7 @@
     modal.innerHTML = `
       <div class="correction-panel" role="dialog" aria-modal="true" aria-labelledby="correctionModalTitle">
         <h2 id="correctionModalTitle">Airport Correction</h2>
-        <p>Add or amend a local airport record. Separate multiple sectors, approaches, VSCS entries, contacts, or hours with commas.</p>
+        <p>Add or amend a local airport record. Separate multiple sectors, apps, VSCS entries, contacts, or hours with commas.</p>
 
         <form id="correctionForm">
           <div class="correction-grid">
@@ -569,21 +578,22 @@
 
             <div class="correction-field">
               <label for="corrApps">Approach</label>
-              <input id="corrApps" name="apps" type="text" placeholder="LBB, LBB Approach, SPS Approach" />
+              <input id="corrApps" name="apps" type="text" placeholder="LBB, LBB APP, SPS APP" />
             </div>
 
             <div class="correction-field">
-              <label for="corrVscs">Approach VSCS</label>
+              <label for="corrVscs">APP VSCS</label>
               <input id="corrVscs" name="vscs" type="text" placeholder='346 (05), 353 (04), 337 (08)' />
             </div>
 
             <div class="correction-field full">
-              <label for="corrContacts">Approach Contact / Notes</label>
+              <label for="corrContacts">APP Contact / Notes</label>
               <textarea id="corrContacts" name="contacts" placeholder="Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)"></textarea>
+              <div class="correction-help">Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)</div>
             </div>
 
             <div class="correction-field">
-              <label for="corrHours">Approach Hours</label>
+              <label for="corrHours">APP Hours</label>
               <input id="corrHours" name="hours" type="text" placeholder="0000-2359" />
             </div>
 
@@ -864,9 +874,15 @@
     input.focus();
   }
 
-  function createPirepUi() {
-    if (document.getElementById("pirepNavModal")) return;
+  function bindPirepNavButton() {
+    const button = document.getElementById("addPirepNavButton");
+    if (button && button.dataset.pirepNavBound !== "true") {
+      button.dataset.pirepNavBound = "true";
+      button.addEventListener("click", openPirepModal);
+    }
+  }
 
+  function createPirepUi() {
     const tools = document.getElementById("correctionTools");
     let button = document.getElementById("addPirepNavButton");
 
@@ -879,9 +895,9 @@
       tools.appendChild(button);
     }
 
-    if (button) {
-      button.addEventListener("click", openPirepModal);
-    }
+    bindPirepNavButton();
+
+    if (document.getElementById("pirepNavModal")) return;
 
     const modal = document.createElement("div");
     modal.id = "pirepNavModal";
@@ -1109,22 +1125,10 @@ const corrections = loadCorrections();
     return String(value || "").trim().toUpperCase();
   }
 
-  function displayOptionLabel(value) {
-    const raw = String(value || "");
-
-    let match = raw.match(/^([A-Z]{2,4})\s+(\d{2})$/);
-    if (match) return `${match[1]}-L ${match[2]}`;
-
-    match = raw.match(/^(\d{2})\s+([A-Z]{2,4})$/);
-    if (match) return `${match[2]}-L ${match[1]}`;
-
-    return raw.replace(/\bAPP\b/g, "Approach");
-  }
-
   function optionHtml(values, selected) {
     selected = normalizeIdent(selected);
     return values.map(function (value) {
-      const label = value ? displayOptionLabel(value) : "";
+      const label = value || "";
       const sel = normalizeIdent(value) === selected ? " selected" : "";
       return `<option value="${value}"${sel}>${label || "Select"}</option>`;
     }).join("");
@@ -1226,9 +1230,7 @@ const corrections = loadCorrections();
 
 
   function areaFromSectorValue(sectorValue) {
-    const sector = String(sectorValue || "").toUpperCase().trim()
-      .replace(/^([A-Z]{2,4})-L\s+(\d{2})$/, "$1 $2")
-      .replace(/^(\d{2})\s+([A-Z]{2,4})-L$/, "$2 $1");
+    const sector = String(sectorValue || "").toUpperCase().trim();
 
     // Operational area mapping. Area names are the six ZFW areas;
     // they are not airport identifiers or sector identifiers.
@@ -1355,3 +1357,33 @@ const corrections = loadCorrections();
   }
 })();
 
+
+
+/* Static correction button binding safety net */
+(function () {
+  "use strict";
+
+  function bindStaticCorrectionButtons() {
+    const airportButton = document.getElementById("amendAirportButton");
+    if (airportButton && airportButton.dataset.airportCorrectionBound !== "true" && typeof openModal === "function") {
+      airportButton.dataset.airportCorrectionBound = "true";
+      airportButton.addEventListener("click", function () { openModal("add"); });
+    }
+
+    const pirepButton = document.getElementById("addPirepNavButton");
+    if (pirepButton && pirepButton.dataset.pirepNavBound !== "true" && typeof openPirepModal === "function") {
+      pirepButton.dataset.pirepNavBound = "true";
+      pirepButton.addEventListener("click", openPirepModal);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindStaticCorrectionButtons);
+  } else {
+    bindStaticCorrectionButtons();
+  }
+
+  setTimeout(bindStaticCorrectionButtons, 250);
+  setTimeout(bindStaticCorrectionButtons, 750);
+  setTimeout(bindStaticCorrectionButtons, 1500);
+})();

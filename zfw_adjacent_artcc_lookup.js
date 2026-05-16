@@ -375,7 +375,17 @@
     const button = document.getElementById("addNonZfwAirportButton");
     if(button && button.dataset.nonZfwBound !== "true"){
       button.dataset.nonZfwBound = "true";
-      button.addEventListener("click", openModal);
+
+      const handler = function(event){
+        if(event){
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        openModal();
+      };
+
+      button.addEventListener("pointerdown", handler, true);
+      button.addEventListener("click", handler, true);
     }
   }
 

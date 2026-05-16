@@ -393,7 +393,17 @@
     const button = document.getElementById("amendAirportButton");
     if (button && button.dataset.airportCorrectionBound !== "true") {
       button.dataset.airportCorrectionBound = "true";
-      button.addEventListener("click", function () { openModal("add"); });
+
+      const handler = function (event) {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        openModal("add");
+      };
+
+      button.addEventListener("pointerdown", handler, true);
+      button.addEventListener("click", handler, true);
     }
   }
 
@@ -908,11 +918,17 @@
     const button = document.getElementById("addPirepNavButton");
     if (button && button.dataset.pirepNavBound !== "true") {
       button.dataset.pirepNavBound = "true";
-      button.addEventListener("click", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
+
+      const handler = function (event) {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
         reopenOrCreatePirepModal();
-      });
+      };
+
+      button.addEventListener("pointerdown", handler, true);
+      button.addEventListener("click", handler, true);
     }
   }
 
@@ -1407,11 +1423,17 @@ const corrections = loadCorrections();
     const pirepButton = document.getElementById("addPirepNavButton");
     if (pirepButton && pirepButton.dataset.pirepNavBound !== "true" && typeof openPirepModal === "function") {
       pirepButton.dataset.pirepNavBound = "true";
-      pirepButton.addEventListener("click", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
+
+      const pirepHandler = function (event) {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
         openPirepModal();
-      });
+      };
+
+      pirepButton.addEventListener("pointerdown", pirepHandler, true);
+      pirepButton.addEventListener("click", pirepHandler, true);
     }
   }
 
@@ -1424,4 +1446,89 @@ const corrections = loadCorrections();
   setTimeout(bindStaticCorrectionButtons, 250);
   setTimeout(bindStaticCorrectionButtons, 750);
   setTimeout(bindStaticCorrectionButtons, 1500);
+})();
+
+
+/* Highlight correction buttons when a searched item is not found */
+(function () {
+  "use strict";
+
+  const BUTTON_IDS = [
+    "amendAirportButton",
+    "addPirepNavButton",
+    "addNonZfwAirportButton"
+  ];
+
+  function ensureNotFoundHighlightStyle() {
+    if (document.getElementById("zfwNotFoundButtonHighlightStyle")) return;
+
+    const style = document.createElement("style");
+    style.id = "zfwNotFoundButtonHighlightStyle";
+    style.textContent = `
+      #correctionTools button.zfw-not-found-action {
+        border-color: var(--green) !important;
+        box-shadow: 0 0 0 3px rgba(65, 209, 125, 0.32), 0 0 18px rgba(65, 209, 125, 0.30) !important;
+        color: var(--green) !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function statusShowsNotFound() {
+    const status = document.getElementById("status");
+    const text = status ? String(status.textContent || "").trim().toUpperCase() : "";
+
+    return /^[A-Z0-9]{3,5}\s+NOT\s+FOUND\b/.test(text);
+  }
+
+  function zfwUpdateNotFoundButtonHighlight() {
+    ensureNotFoundHighlightStyle();
+
+    const on = statusShowsNotFound();
+
+    BUTTON_IDS.forEach(function (id) {
+      const button = document.getElementById(id);
+      if (button) {
+        button.classList.toggle("zfw-not-found-action", on);
+      }
+    });
+  }
+
+  function watchNotFoundStatus() {
+    zfwUpdateNotFoundButtonHighlight();
+
+    const status = document.getElementById("status");
+    if (status && !status.dataset.notFoundObserverAttached) {
+      status.dataset.notFoundObserverAttached = "true";
+
+      new MutationObserver(zfwUpdateNotFoundButtonHighlight).observe(status, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+    }
+
+    const input = document.getElementById("airportInput");
+    if (input && !input.dataset.notFoundButtonWatcherAttached) {
+      input.dataset.notFoundButtonWatcherAttached = "true";
+      ["input", "change", "blur"].forEach(function (eventName) {
+        input.addEventListener(eventName, function () {
+          setTimeout(zfwUpdateNotFoundButtonHighlight, 0);
+          setTimeout(zfwUpdateNotFoundButtonHighlight, 100);
+        });
+      });
+    }
+  }
+
+  window.zfwUpdateNotFoundButtonHighlight = zfwUpdateNotFoundButtonHighlight;
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", watchNotFoundStatus);
+  } else {
+    watchNotFoundStatus();
+  }
+
+  setTimeout(watchNotFoundStatus, 250);
+  setTimeout(watchNotFoundStatus, 750);
+  setInterval(zfwUpdateNotFoundButtonHighlight, 1000);
 })();

@@ -154,12 +154,25 @@
 
     setText("sector", "Outside ZFW");
     setText("area", centerId);
-    setText("approach", "Outside ZFW ARTCC");
+    setText("approach", "—");
     setText("vscs", "—");
     setText("contact", `${centerId} Flight Data Number: ${fdcd || "—"}`);
     setText("hours", "—");
     setText("airportName", rec.name || displayIdent);
     setText("nearestWeather", "—");
+
+    const sectorValue = document.getElementById("sector");
+    const areaValue = document.getElementById("area");
+
+    if(sectorValue){
+      sectorValue.classList.add("red-text");
+      sectorValue.style.color = "var(--red)";
+    }
+
+    if(areaValue){
+      areaValue.classList.add("red-text");
+      areaValue.style.color = "var(--red)";
+    }
 
     highlightContact();
 

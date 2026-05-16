@@ -164,6 +164,13 @@
       return false;
     }
 
+    // ZFW airport records always take priority over adjacent ARTCC records.
+    // This prevents ZFW airports such as MLU, TXK, OKC, MAF, and ELD from
+    // being treated as outside-ZFW airports if they appear in the adjacent list.
+    if(getZfwRecord(ident)){
+      return false;
+    }
+
     const adjacent = getAdjacentRecord(ident);
 
     if(!adjacent){
@@ -195,16 +202,17 @@
       return;
     }
 
+    if(getZfwRecord(ident)){
+      activeAdjacentIdent = "";
+      return;
+    }
+
     const adjacent = getAdjacentRecord(ident);
     if(adjacent){
       [0, 100, 250].forEach(delay => {
         setTimeout(() => showAdjacent(ident, adjacent), delay);
       });
       return;
-    }
-
-    if(getZfwRecord(ident)){
-      activeAdjacentIdent = "";
     }
   }
 
@@ -220,14 +228,14 @@
       const typed = normalizeIdent(input?.value || "");
 
       if(typed && isCompleteAirportIdent(typed)){
-        const adjacent = getAdjacentRecord(typed);
-        if(adjacent){
-          showAdjacent(typed, adjacent);
+        if(getZfwRecord(typed)){
+          activeAdjacentIdent = "";
           return;
         }
 
-        if(getZfwRecord(typed)){
-          activeAdjacentIdent = "";
+        const adjacent = getAdjacentRecord(typed);
+        if(adjacent){
+          showAdjacent(typed, adjacent);
           return;
         }
       }

@@ -26,70 +26,52 @@ function ensureFdcsGlowStyle(){
   const style=document.createElement("style");
   style.id="fdcsGlowStyle";
   style.textContent=`
-    @keyframes fdcsGreenBorderRunner{
-      0%{
-        left:12px;
-        top:0;
-        transform:translateY(-50%) rotate(0deg);
-      }
-      42%{
-        left:calc(100% - 86px);
-        top:0;
-        transform:translateY(-50%) rotate(0deg);
-      }
-      50%{
-        left:calc(100% - 2px);
-        top:calc(100% - 70px);
-        transform:translateX(-50%) rotate(90deg);
-      }
-      92%{
-        left:12px;
-        top:calc(100% - 2px);
-        transform:translateY(-50%) rotate(180deg);
-      }
-      100%{
-        left:0;
-        top:12px;
-        transform:translateX(-50%) rotate(270deg);
-      }
+    @keyframes fdcsGreenBorderFlow{
+      from{offset-distance:0%}
+      to{offset-distance:100%}
     }
 
     .fdcs-glow-green{
       position:relative;
       overflow:hidden;
-      border:2px solid rgba(65,209,125,.72)!important;
+      border:2px solid rgba(65,209,125,.74)!important;
       background:linear-gradient(var(--card),var(--card)) padding-box!important;
       box-shadow:
-        0 0 7px rgba(65,209,125,.30),
-        0 0 16px rgba(65,209,125,.20),
-        inset 0 0 0 1px rgba(65,209,125,.16)!important;
+        0 0 7px rgba(65,209,125,.28),
+        0 0 15px rgba(65,209,125,.18),
+        inset 0 0 0 1px rgba(65,209,125,.14)!important;
     }
 
     .fdcs-glow-green::before,
     .fdcs-glow-green::after{
       content:"";
       position:absolute;
-      width:74px;
+      width:54px;
       height:4px;
       border-radius:999px;
       background:linear-gradient(90deg,
         rgba(65,209,125,0),
-        rgba(65,209,125,.55),
+        rgba(65,209,125,.58),
         #ecfff4,
-        rgba(65,209,125,.55),
+        rgba(65,209,125,.58),
         rgba(65,209,125,0)
       );
       box-shadow:
-        0 0 8px rgba(65,209,125,.80),
-        0 0 16px rgba(65,209,125,.42);
+        0 0 8px rgba(65,209,125,.72),
+        0 0 14px rgba(65,209,125,.36);
       pointer-events:none;
       z-index:0;
-      animation:fdcsGreenBorderRunner 8.5s linear infinite;
-      will-change:left,top,transform;
+
+      /* Motion path keeps the highlight on the border path instead of inside the card. */
+      offset-path: inset(1px round 14px);
+      offset-anchor: center;
+      offset-rotate: auto;
+      animation: fdcsGreenBorderFlow 11s linear infinite;
+      will-change: offset-distance;
     }
 
     .fdcs-glow-green::after{
-      animation-delay:-4.25s;
+      animation-delay:-5.5s;
     }
 
     .fdcs-glow-green > *{

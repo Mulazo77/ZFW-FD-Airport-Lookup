@@ -688,6 +688,70 @@
     }
   </style>
 
+
+  <style id="zfwOmicInputHighlightFix">
+    #omicInput {
+      color: var(--text) !important;
+      caret-color: var(--cyan) !important;
+      text-shadow: 0 0 8px rgba(102, 200, 255, 0.14) !important;
+    }
+
+    #omicInput::placeholder {
+      color: var(--muted) !important;
+      opacity: 0.78 !important;
+    }
+
+    @property --omicGreenGlowSize {
+      syntax: "<length>";
+      inherits: false;
+      initial-value: 10px;
+    }
+
+    @property --omicGreenGlowAlpha {
+      syntax: "<number>";
+      inherits: false;
+      initial-value: .20;
+    }
+
+    @keyframes omicGreenSlowFadeGlow {
+      0%, 100% {
+        --omicGreenGlowSize: 10px;
+        --omicGreenGlowAlpha: .20;
+      }
+      50% {
+        --omicGreenGlowSize: 26px;
+        --omicGreenGlowAlpha: .46;
+      }
+    }
+
+    .omic-green-highlight {
+      border-color: var(--green) !important;
+      box-shadow:
+        0 0 0 2px rgba(65, 209, 125, .30),
+        0 0 var(--omicGreenGlowSize) rgba(65, 209, 125, var(--omicGreenGlowAlpha)),
+        inset 0 0 0 1px rgba(65, 209, 125, .18) !important;
+      animation: omicGreenSlowFadeGlow 3.8s ease-in-out infinite !important;
+    }
+
+    .omic-green-highlight .card-title,
+    .omic-green-highlight .card-value,
+    .omic-green-text {
+      color: var(--green) !important;
+    }
+
+    .omic-red-highlight {
+      border-color: var(--red) !important;
+      box-shadow: none !important;
+      animation: none !important;
+    }
+
+    .omic-red-highlight .card-title,
+    .omic-red-highlight .card-value,
+    .omic-red-text {
+      color: var(--red) !important;
+    }
+  </style>
+
 </head>
 <body>
   <section id="loginPage">
@@ -1309,8 +1373,16 @@
 
           if (appDetails.appIsOpen) {
             highlightOmicBox("omicApp", "green");
+
+            // Match FDCS behavior: when Approach is open, the sector is a red,
+            // non-glowing call-for-clearance alert.
+            if (sectors.length) highlightOmicBox("omicSector", "red");
           } else {
             highlightOmicBox("omicApp", "red");
+
+            // Match FDCS behavior: when Approach is closed, the sector is the
+            // correct item to call and gets the green slow glow.
+            if (sectors.length) highlightOmicBox("omicSector", "green");
           }
         } else {
           setOmicText("omicApp", "—");

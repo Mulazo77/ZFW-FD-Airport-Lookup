@@ -935,27 +935,37 @@
       function nearestWeather(record) {
         if (!record) return "—";
 
+        const lat = Number(record.lat);
+        const lon = Number(record.lon);
+        const stations = window.ZFW_WEATHER_STATIONS || [];
+
+        // Prefer an actual nearest-station calculation any time coordinates exist.
+        // Stored nearest_wx values are only a fallback for records without usable coordinates.
+        if (Number.isFinite(lat) && Number.isFinite(lon) && stations.length) {
+          let best = null;
+
+          stations.forEach(function (station) {
+            const stationLat = Number(station.lat);
+            const stationLon = Number(station.lon);
+            if (!Number.isFinite(stationLat) || !Number.isFinite(stationLon)) return;
+
+            const nm = distanceNm(lat, lon, stationLat, stationLon);
+            if (!best || nm < best.distanceNm) {
+              best = {
+                id: normalizeOmicIdent(station.id),
+                distanceNm: nm
+              };
+            }
+          });
+
+          if (best) return best.id;
+        }
+
         if (record.nearest_wx) {
           return normalizeOmicIdent(record.nearest_wx);
         }
 
-        if (!Number.isFinite(Number(record.lat)) || !Number.isFinite(Number(record.lon))) {
-          return "—";
-        }
-
-        const stations = window.ZFW_WEATHER_STATIONS || [];
-        let best = null;
-
-        stations.forEach(function (station) {
-          if (!Number.isFinite(Number(station.lat)) || !Number.isFinite(Number(station.lon))) return;
-
-          const nm = distanceNm(Number(record.lat), Number(record.lon), Number(station.lat), Number(station.lon));
-          if (!best || nm < best.distanceNm) {
-            best = { id: normalizeOmicIdent(station.id), distanceNm: nm };
-          }
-        });
-
-        return best ? best.id : "—";
+        return "—";
       }
 
       function getAdjacentRecord(ident) {

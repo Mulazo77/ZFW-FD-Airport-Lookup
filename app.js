@@ -32,6 +32,7 @@ function ensureFdcsGlowStyle(){
       initial-value:0deg;
     }
     @keyframes fdcsGreenBorderOrbit{
+      from{--fdcsGlowAngle:0deg}
       to{--fdcsGlowAngle:360deg}
     }
     .fdcs-glow-green{
@@ -40,14 +41,18 @@ function ensureFdcsGlowStyle(){
       background:
         linear-gradient(var(--card),var(--card)) padding-box,
         conic-gradient(from var(--fdcsGlowAngle),
-          rgba(65,209,125,.12) 0deg,
-          rgba(65,209,125,.12) 245deg,
-          rgba(65,209,125,.55) 285deg,
-          var(--green) 320deg,
-          rgba(65,209,125,.12) 360deg
+          rgba(65,209,125,.82) 0deg,
+          rgba(65,209,125,.82) 190deg,
+          rgba(65,209,125,1) 230deg,
+          #b8ffd2 250deg,
+          rgba(65,209,125,1) 270deg,
+          rgba(65,209,125,.82) 310deg,
+          rgba(65,209,125,.82) 360deg
         ) border-box!important;
-      box-shadow:0 0 12px rgba(65,209,125,.24)!important;
-      animation:fdcsGreenBorderOrbit 2.8s linear infinite;
+      box-shadow:
+        0 0 8px rgba(65,209,125,.36),
+        0 0 18px rgba(65,209,125,.28)!important;
+      animation:fdcsGreenBorderOrbit 3.4s linear infinite;
     }
   `;
   document.head.appendChild(style);

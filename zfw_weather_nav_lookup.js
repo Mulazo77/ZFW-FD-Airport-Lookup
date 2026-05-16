@@ -11,7 +11,7 @@
 
   function isCompleteLookupIdent(ident){
     ident = normalizeIdent(ident);
-    return ident.length >= 3;
+    return /^[A-Z0-9]{3}$/.test(ident) || /^K[A-Z0-9]{3}$/.test(ident) || /^[A-Z0-9]{5}$/.test(ident);
   }
 
   function ensureAirportData(){
@@ -35,19 +35,76 @@
 
   function clone(record){ return JSON.parse(JSON.stringify(record || {})); }
 
+  function baseAirportIdent(ident){
+    ident = normalizeIdent(ident);
+    if(ident.length === 4 && ident.startsWith("K")) return ident.slice(1);
+    return ident;
+  }
+
+  function airportRecordForSameIdent(ident){
+    const records = ensureAirportData();
+    const base = baseAirportIdent(ident);
+    if(!/^[A-Z0-9]{3}$/.test(base)) return null;
+
+    const kIdent = "K" + base;
+    if(records[kIdent] && isAirportRecord(records[kIdent])) return records[kIdent];
+    if(records[base] && isAirportRecord(records[base])) return records[base];
+
+    return null;
+  }
+
+  function navRecordExistsForSameIdent(ident){
+    const records = ensureAirportData();
+    const navData = sourceNavData();
+    const base = baseAirportIdent(ident);
+    if(!/^[A-Z0-9]{3}$/.test(base)) return false;
+
+    if(navData[base] || navData["K" + base]) return true;
+    return Boolean(records[base] && isNavType(records[base]));
+  }
+
+  function isSharedAirportNavIdent(ident){
+    return Boolean(airportRecordForSameIdent(ident) && navRecordExistsForSameIdent(ident));
+  }
+
+  function airportWeatherIdForIdent(ident){
+    return baseAirportIdent(ident);
+  }
+
   function getRecord(ident){
     const records = ensureAirportData();
     ident = normalizeIdent(ident);
-    if(records[ident]) return records[ident];
+
+    if(!isCompleteLookupIdent(ident)) return null;
 
     if(ident.length === 4 && ident.startsWith("K")){
       const stripped = ident.slice(1);
-      if(records[stripped] && isAirportRecord(records[stripped])) return records[stripped];
+
+      if(records[ident] && isAirportRecord(records[ident])) return records[ident];
+      if(records[stripped]) return records[stripped];
+      if(records[ident]) return records[ident];
+
+      return null;
     }
+
     if(ident.length === 3){
       const kIdent = "K" + ident;
+
+      // Airport records win when a valid K-airport exists, which prevents
+      // airport/NAVAID duplicates like SPS from being treated as the navaid.
       if(records[kIdent] && isAirportRecord(records[kIdent])) return records[kIdent];
+
+      if(records[ident]) return records[ident];
+      if(records[kIdent]) return records[kIdent];
+
+      return null;
     }
+
+    if(ident.length === 5){
+      if(records[ident]) return records[ident];
+      return null;
+    }
+
     return null;
   }
 
@@ -185,8 +242,8 @@
     if(!card) return;
     if(on){
       card.classList.add("nearest-wx-highlight");
-      card.style.borderColor = "#ffd166";
-      card.style.boxShadow = "0 0 0 2px rgba(255,209,102,.45),0 0 16px rgba(255,209,102,.35)";
+      card.style.borderColor = "var(--green)";
+      card.style.boxShadow = "0 0 0 3px rgba(65,209,125,.32),0 0 18px rgba(65,209,125,.30)";
     } else {
       card.classList.remove("nearest-wx-highlight");
       card.style.borderColor = "";
@@ -198,7 +255,7 @@
     if(document.getElementById("nearestWxHighlightStyle")) return;
     const style = document.createElement("style");
     style.id = "nearestWxHighlightStyle";
-    style.textContent = `.nearest-wx-highlight{border-color:#ffd166!important;box-shadow:0 0 0 2px rgba(255,209,102,.45),0 0 16px rgba(255,209,102,.35)!important}.nearest-wx-highlight .card-title,.nearest-wx-highlight .card-value{color:#ffd166!important}`;
+    style.textContent = `.nearest-wx-highlight{border-color:var(--green)!important;box-shadow:0 0 0 3px rgba(65,209,125,.32),0 0 18px rgba(65,209,125,.30)!important}.nearest-wx-highlight .card-title,.nearest-wx-highlight .card-value{color:var(--green)!important}`;
     document.head.appendChild(style);
   }
 
@@ -242,7 +299,7 @@
     lastFoundRecord = record || null;
 
     if(isNavType(record)){
-      forceStatus((ident || lastLookupIdent || "Found") + ": Found");
+      forceStatus((ident || lastLookupIdent || "SEARCH") + " found");
       clearAirportOutputsForNav(record);
       setNearestHighlight(true);
       hideMapForNav(record);
@@ -258,7 +315,7 @@
     output.textContent = lastDisplayedWx;
     output.title = lastDisplayedTitle || "";
     if(lastFoundWasNav){
-      forceStatus("Found");
+      forceStatus((lastLookupIdent || "SEARCH") + " found");
       clearAirportOutputsForNav(lastFoundRecord);
       setNearestHighlight(true);
       hideMapForNav(lastFoundRecord);
@@ -274,7 +331,7 @@
     const typedIdent = normalizeIdent(input.value);
     if(!typedIdent){
       restoreLast(output);
-      if(lastFoundWasNav && statusLooksBad()) forceStatus("Found");
+      if(lastFoundWasNav && statusLooksBad()) forceStatus((lastLookupIdent || "SEARCH") + " found");
       return;
     }
 
@@ -286,20 +343,20 @@
 
     const record = getRecord(typedIdent);
 
-    if(window.ZFW_ADJACENT_LOOKUP_ACTIVE){
-      if(record && isNavType(record)){
-        if(window.clearAdjacentAirportDisplayState){
-          window.clearAdjacentAirportDisplayState();
-        }
-      }else{
-        output.textContent = "—";
-        output.title = "";
-        setNearestHighlight(false);
-        return;
-      }
+    if(isSharedAirportNavIdent(typedIdent)){
+      const airportWx = airportWeatherIdForIdent(typedIdent);
+      output.textContent = airportWx;
+      output.title = "Airport identifier also serves as the weather reporting station.";
+      lastDisplayedWx = "";
+      lastDisplayedTitle = "";
+      lastFoundWasNav = false;
+      lastFoundRecord = null;
+      setNearestHighlight(false);
+      hideMapForNav(null);
+      return;
     }
 
-    if(record && isNavType(record)){ forceStatus("Found"); clearAirportOutputsForNav(record); }
+    if(record && isNavType(record)){ forceStatus(typedIdent + " found"); clearAirportOutputsForNav(record); }
 
     const nearest = calculateNearest(record);
     if(!nearest){
@@ -332,26 +389,11 @@
       const output = document.getElementById("nearestWeather");
       if(!input || !output) return;
       const typedIdent = normalizeIdent(input.value);
-      const intervalRecord = typedIdent ? getRecord(typedIdent) : null;
-
-      if(window.ZFW_ADJACENT_LOOKUP_ACTIVE){
-        if(intervalRecord && isNavType(intervalRecord)){
-          if(window.clearAdjacentAirportDisplayState){
-            window.clearAdjacentAirportDisplayState();
-          }
-        }else{
-          output.textContent = "—";
-          output.title = "";
-          setNearestHighlight(false);
-          return;
-        }
-      }
-
       const outText = normalizeIdent(output.textContent);
       if(typedIdent) updateNearestWeather();
       else {
         if(lastDisplayedWx && (!outText || outText === "—")) restoreLast(output);
-        if(lastFoundWasNav && statusLooksBad()) forceStatus("Found");
+        if(lastFoundWasNav && statusLooksBad()) forceStatus((lastLookupIdent || "SEARCH") + " found");
         if(lastFoundWasNav) clearAirportOutputsForNav(lastFoundRecord);
       }
     }, 250);

@@ -58,7 +58,20 @@
   }
 
   function isNonZfwType(type) {
-    return String(type || "").toLowerCase() === "non_zfw_airports";
+    const value = String(type || "").toLowerCase();
+    return value === "non_zfw_airports" ||
+      value === "non_zfw_airport" ||
+      value === "non-zfw-airports" ||
+      value === "non_zfw" ||
+      value === "non-zfw";
+  }
+
+  function recordIsNonZfw(record) {
+    if (!record) return false;
+
+    return isNonZfwType(record.data_category) ||
+      isNonZfwType(record.category) ||
+      String(record.record_type || "").toUpperCase() === "NON_ZFW_AIRPORT";
   }
 
   function applyRecord(type, ident, record) {
@@ -68,20 +81,7 @@
     record = clone(record);
     const records = getAirportRecords();
 
-    if (isAirportType(type)) {
-      records[ident] = record;
-
-      if (ident.length === 4 && ident.startsWith("K")) {
-        records[ident.slice(1)] = clone(record);
-      } else if (ident.length === 3) {
-        records["K" + ident] = clone(record);
-      }
-
-      notifyDataChanged();
-      return;
-    }
-
-    if (isNonZfwType(type)) {
+    if (isNonZfwType(type) || recordIsNonZfw(record)) {
       const adjacent = getAdjacentData();
       let cleanIdent = ident;
 
@@ -98,6 +98,19 @@
 
       adjacent.airports[cleanIdent] = cleanRecord;
       adjacent.airports["K" + cleanIdent] = cleanRecord;
+
+      notifyDataChanged();
+      return;
+    }
+
+    if (isAirportType(type)) {
+      records[ident] = record;
+
+      if (ident.length === 4 && ident.startsWith("K")) {
+        records[ident.slice(1)] = clone(record);
+      } else if (ident.length === 3) {
+        records["K" + ident] = clone(record);
+      }
 
       notifyDataChanged();
       return;
@@ -262,6 +275,16 @@
     ident = normalizeIdent(ident);
     if (!ident) return false;
 
+    const nonZfw = isNonZfwType(type) || recordIsNonZfw(record);
+
+    if (nonZfw) {
+      record = Object.assign({}, record, {
+        identifier: ident,
+        record_type: "NON_ZFW_AIRPORT",
+        data_category: "non_zfw_airports"
+      });
+    }
+
     applyRecord(type, ident, record);
 
     const ok = await initFirebase();
@@ -274,16 +297,27 @@
 
       let collectionName = "navpoints";
       if (isAirportType(type)) collectionName = "airports";
-      if (isNonZfwType(type)) collectionName = "non_zfw_airports";
+      if (nonZfw) collectionName = "non_zfw_airports";
 
       const cleanRecord = clone(record);
 
       cleanRecord.identifier = ident;
-      cleanRecord.data_category = collectionName;
+      cleanRecord.data_category = nonZfw ? "non_zfw_airports" : collectionName;
       cleanRecord.updated_at = serverTimestamp();
 
-      await setDoc(doc(db, "zfw_corrections", collectionName, "records", ident), cleanRecord);
-      return true;
+      try {
+        await setDoc(doc(db, "zfw_corrections", collectionName, "records", ident), cleanRecord);
+        return true;
+      } catch (firstError) {
+        // Some existing Firebase rules may allow airports/navpoints but not the newer
+        // non_zfw_airports category. For non-ZFW airports, also save a marked copy
+        // in the airports collection so all PCs still receive it on refresh/listener load.
+        if (!nonZfw) throw firstError;
+
+        console.warn("Primary non-ZFW save failed, trying airports fallback:", firstError.message || firstError);
+        await setDoc(doc(db, "zfw_corrections", "airports", "records", ident), cleanRecord);
+        return true;
+      }
     } catch (error) {
       console.warn("Could not save Firestore correction:", error.message || error);
       return false;

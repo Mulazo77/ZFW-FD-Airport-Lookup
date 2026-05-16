@@ -805,7 +805,7 @@
     form.recordType.value = record.record_type || "WAYPOINT";
     form.nearestWx.value = record.nearest_wx || "";
 
-    form.notes.value = Array.isArray(record.contacts) ? record.contacts.join(", ") : "";
+    if (form.notes) form.notes.value = Array.isArray(record.contacts) ? record.contacts.join(", ") : "";
   }
 
   function makePirepRecordFromForm(form) {
@@ -908,7 +908,11 @@
     const button = document.getElementById("addPirepNavButton");
     if (button && button.dataset.pirepNavBound !== "true") {
       button.dataset.pirepNavBound = "true";
-      button.addEventListener("click", reopenOrCreatePirepModal);
+      button.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        reopenOrCreatePirepModal();
+      });
     }
   }
 
@@ -1403,7 +1407,11 @@ const corrections = loadCorrections();
     const pirepButton = document.getElementById("addPirepNavButton");
     if (pirepButton && pirepButton.dataset.pirepNavBound !== "true" && typeof openPirepModal === "function") {
       pirepButton.dataset.pirepNavBound = "true";
-      pirepButton.addEventListener("click", openPirepModal);
+      pirepButton.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        openPirepModal();
+      });
     }
   }
 

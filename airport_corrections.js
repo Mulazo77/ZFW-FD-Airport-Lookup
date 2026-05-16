@@ -1214,8 +1214,8 @@ const corrections = loadCorrections();
   function areaFromSectorValue(sectorValue) {
     const sector = String(sectorValue || "").toUpperCase().trim();
 
-    // Area names are operational areas. They are not the same thing as airport
-    // identifiers or three-letter sector names that may share the same letters.
+    // Operational area mapping. Area names are the six ZFW areas;
+    // they are not airport identifiers or sector identifiers.
     const sectorAreaMap = {
       "LBB 64": "RDR",
       "POS 32": "RDR",

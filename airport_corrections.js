@@ -97,20 +97,21 @@
 
   const SECTOR_TO_AREA = {
     "LBB 64": "RDR",
+    "POS 32": "RDR",
+    "MAF 40": "JEN",
+    "ABI 63": "JEN",
+    "EDN 62": "JEN",
+    "ACT 96": "DAL",
+    "UIM 83": "DAL",
+    "TXK 27": "DAL",
     "SPS 34": "UKW",
     "OKC 35": "UKW",
     "UKW 75": "UKW",
-    "ABI 63": "JEN",
-    "EDN 62": "JEN",
-    "MAF 40": "JEN",
-    "SEA 37": "BYP",
-    "MLC 38": "BYP",
     "FRI 53": "BYP",
-    "UIM 83": "BYP",
-    "DON 29": "DAL",
-    "POS 32": "DAL",
-    "TXK 27": "BYP",
-    "MLU 30": "BYP"
+    "MLC 38": "BYP",
+    "SEA 37": "BYP",
+    "DON 29": "CQY",
+    "MLU 30": "CQY"
   };
 
   function getRecords() {
@@ -240,7 +241,7 @@
   function normalizeApps(value) {
     return dedupe(
       splitList(value).map((item) => {
-        let app = item.toUpperCase().trim();
+        let app = item.toUpperCase().trim().replace(/\bAPPROACH\b/g, "APP");
         if (!app) return "";
         if (!app.endsWith("APP") && app !== "D10") app += " APP";
         if (app === "D10") app = "D10 APP";
@@ -539,7 +540,7 @@
     modal.innerHTML = `
       <div class="correction-panel" role="dialog" aria-modal="true" aria-labelledby="correctionModalTitle">
         <h2 id="correctionModalTitle">Airport Correction</h2>
-        <p>Add or amend a local airport record. Separate multiple sectors, apps, VSCS entries, contacts, or hours with commas.</p>
+        <p>Add or amend a local airport record. Separate multiple sectors, approaches, VSCS entries, contacts, or hours with commas.</p>
 
         <form id="correctionForm">
           <div class="correction-grid">
@@ -568,22 +569,21 @@
 
             <div class="correction-field">
               <label for="corrApps">Approach</label>
-              <input id="corrApps" name="apps" type="text" placeholder="LBB, LBB APP, SPS APP" />
+              <input id="corrApps" name="apps" type="text" placeholder="LBB, LBB Approach, SPS Approach" />
             </div>
 
             <div class="correction-field">
-              <label for="corrVscs">APP VSCS</label>
+              <label for="corrVscs">Approach VSCS</label>
               <input id="corrVscs" name="vscs" type="text" placeholder='346 (05), 353 (04), 337 (08)' />
             </div>
 
             <div class="correction-field full">
-              <label for="corrContacts">APP Contact / Notes</label>
+              <label for="corrContacts">Approach Contact / Notes</label>
               <textarea id="corrContacts" name="contacts" placeholder="Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)"></textarea>
-              <div class="correction-help">Phone Number and Additional Info (Do Not Enter Military Approach Control Numbers)</div>
             </div>
 
             <div class="correction-field">
-              <label for="corrHours">APP Hours</label>
+              <label for="corrHours">Approach Hours</label>
               <input id="corrHours" name="hours" type="text" placeholder="0000-2359" />
             </div>
 
@@ -1112,7 +1112,7 @@ const corrections = loadCorrections();
   function optionHtml(values, selected) {
     selected = normalizeIdent(selected);
     return values.map(function (value) {
-      const label = value || "";
+      const label = value ? String(value).replace(/\bAPP\b/g, "Approach") : "";
       const sel = normalizeIdent(value) === selected ? " selected" : "";
       return `<option value="${value}"${sel}>${label || "Select"}</option>`;
     }).join("");

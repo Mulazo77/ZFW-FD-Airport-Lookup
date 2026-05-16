@@ -41,18 +41,33 @@ function ensureFdcsGlowStyle(){
       background:
         linear-gradient(var(--card),var(--card)) padding-box,
         conic-gradient(from var(--fdcsGlowAngle),
-          rgba(65,209,125,.82) 0deg,
-          rgba(65,209,125,.82) 190deg,
-          rgba(65,209,125,1) 230deg,
-          #b8ffd2 250deg,
-          rgba(65,209,125,1) 270deg,
-          rgba(65,209,125,.82) 310deg,
-          rgba(65,209,125,.82) 360deg
+          rgba(65,209,125,.58) 0deg,
+          rgba(65,209,125,.58) 8deg,
+          rgba(108,255,171,.96) 16deg,
+          #ecfff4 22deg,
+          rgba(108,255,171,.96) 28deg,
+          rgba(65,209,125,.58) 36deg,
+          rgba(65,209,125,.58) 152deg,
+          rgba(108,255,171,.96) 160deg,
+          #ecfff4 166deg,
+          rgba(108,255,171,.96) 172deg,
+          rgba(65,209,125,.58) 180deg,
+          rgba(65,209,125,.58) 188deg,
+          rgba(108,255,171,.96) 196deg,
+          #ecfff4 202deg,
+          rgba(108,255,171,.96) 208deg,
+          rgba(65,209,125,.58) 216deg,
+          rgba(65,209,125,.58) 332deg,
+          rgba(108,255,171,.96) 340deg,
+          #ecfff4 346deg,
+          rgba(108,255,171,.96) 352deg,
+          rgba(65,209,125,.58) 360deg
         ) border-box!important;
       box-shadow:
-        0 0 8px rgba(65,209,125,.36),
-        0 0 18px rgba(65,209,125,.28)!important;
-      animation:fdcsGreenBorderOrbit 3.4s linear infinite;
+        0 0 7px rgba(65,209,125,.34),
+        0 0 16px rgba(65,209,125,.22),
+        inset 0 0 0 1px rgba(65,209,125,.18)!important;
+      animation:fdcsGreenBorderOrbit 4s linear infinite;
     }
   `;
   document.head.appendChild(style);
@@ -229,6 +244,7 @@ function updateResults(){
   }else{
     if(apps.length){
       highlightFdcsCard("approach","red");
+      if(sectors.length)highlightFdcsCard("sector","green");
       statusEl.textContent=`${upper} found`;
       statusEl.style.color="var(--red)";
     }else{

@@ -26,57 +26,24 @@ function ensureFdcsGlowStyle(){
   const style=document.createElement("style");
   style.id="fdcsGlowStyle";
   style.textContent=`
-    @keyframes fdcsGreenBorderFlow{
-      from{offset-distance:0%}
-      to{offset-distance:100%}
+    @keyframes fdcsGreenSlowFadeGlow{
+      0%,100%{
+        box-shadow:
+          0 0 0 2px rgba(65,209,125,.24),
+          0 0 10px rgba(65,209,125,.18),
+          inset 0 0 0 1px rgba(65,209,125,.12);
+      }
+      50%{
+        box-shadow:
+          0 0 0 3px rgba(65,209,125,.48),
+          0 0 24px rgba(65,209,125,.42),
+          inset 0 0 0 1px rgba(65,209,125,.24);
+      }
     }
 
     .fdcs-glow-green{
-      position:relative;
-      overflow:hidden;
-      border:2px solid rgba(65,209,125,.74)!important;
-      background:linear-gradient(var(--card),var(--card)) padding-box!important;
-      box-shadow:
-        0 0 7px rgba(65,209,125,.28),
-        0 0 15px rgba(65,209,125,.18),
-        inset 0 0 0 1px rgba(65,209,125,.14)!important;
-    }
-
-    .fdcs-glow-green::before,
-    .fdcs-glow-green::after{
-      content:"";
-      position:absolute;
-      width:54px;
-      height:4px;
-      border-radius:999px;
-      background:linear-gradient(90deg,
-        rgba(65,209,125,0),
-        rgba(65,209,125,.58),
-        #ecfff4,
-        rgba(65,209,125,.58),
-        rgba(65,209,125,0)
-      );
-      box-shadow:
-        0 0 8px rgba(65,209,125,.72),
-        0 0 14px rgba(65,209,125,.36);
-      pointer-events:none;
-      z-index:0;
-
-      /* Motion path keeps the highlight on the border path instead of inside the card. */
-      offset-path: inset(1px round 14px);
-      offset-anchor: center;
-      offset-rotate: auto;
-      animation: fdcsGreenBorderFlow 11s linear infinite;
-      will-change: offset-distance;
-    }
-
-    .fdcs-glow-green::after{
-      animation-delay:-5.5s;
-    }
-
-    .fdcs-glow-green > *{
-      position:relative;
-      z-index:1;
+      border-color:var(--green)!important;
+      animation:fdcsGreenSlowFadeGlow 3.8s ease-in-out infinite;
     }
   `;
   document.head.appendChild(style);
@@ -342,20 +309,27 @@ function drawMap() {
     const x = padX + xNorm * mapW;
     const y = padY + yNorm * mapH;
 
-    ctx.beginPath();
-    ctx.arc(x, y, 9, 0, Math.PI * 2);
-    ctx.fillStyle = AMBER;
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = WHITE;
-    ctx.stroke();
+    ctx.save();
+    ctx.shadowColor = "rgba(102, 200, 255, 0.90)";
+    ctx.shadowBlur = 18;
 
     ctx.beginPath();
-    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.arc(x, y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "#d8f4ff";
+    ctx.fill();
+
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#66c8ff";
+    ctx.stroke();
+
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
     ctx.fillStyle = WHITE;
     ctx.fill();
 
-    ctx.fillStyle = AMBER;
+    ctx.fillStyle = "#d8f4ff";
     ctx.font = "bold 13px Consolas";
     ctx.fillText(currentMarker.ident, x + 15, y - 11);
   } else {

@@ -21,9 +21,22 @@ function parseHours(hours){const h=(hours||"").trim().toUpperCase();const times=
 function militaryToMinutes(t){const h=Number(t.slice(0,2)),m=Number(t.slice(2));return h===24?1440:h*60+m}
 function dayAllowed(d,n){const x=n.getDay();if(d==="ALL")return true;if(d==="M-F")return x>=1&&x<=5;if(d==="SU")return x===0;return true}
 function isOpen(hours){const w=parseHours(hours);if(!w.length)return false;const n=new Date(),cur=n.getHours()*60+n.getMinutes();return w.some(([d,s,e])=>{if(!dayAllowed(d,n))return false;const sm=militaryToMinutes(s),em=militaryToMinutes(e);return em>=sm?(cur>=sm&&cur<=em):(cur>=sm||cur<=em)})}
+function ensureFdcsGlowStyle(){
+  if(document.getElementById("fdcsGlowStyle"))return;
+  const style=document.createElement("style");
+  style.id="fdcsGlowStyle";
+  style.textContent=`
+    @keyframes fdcsGreenSlowGlow{
+      0%,100%{box-shadow:0 0 0 2px rgba(65,209,125,.30),0 0 10px rgba(65,209,125,.22)}
+      50%{box-shadow:0 0 0 4px rgba(65,209,125,.55),0 0 26px rgba(65,209,125,.52)}
+    }
+    .fdcs-glow-green{animation:fdcsGreenSlowGlow 2.8s ease-in-out infinite}
+  `;
+  document.head.appendChild(style);
+}
 function setText(id,v){els[id].textContent=v||"—"}
-function clearClasses(){Object.values(cards).forEach(c=>{c.classList.remove("primary");c.style.background="";c.style.borderColor="";c.style.boxShadow=""});Object.values(els).forEach(e=>{e.classList.remove("red-text","green-text","amber-text","cyan-text");e.style.color=""})}
-function highlightFdcsCard(id,color){const card=cards[id],el=els[id];if(!card||!el)return;if(color==="red"){card.style.borderColor="var(--red)";card.style.boxShadow="0 0 0 3px rgba(255,75,75,.28),0 0 18px rgba(255,75,75,.24)";el.classList.add("red-text");return}card.style.borderColor="var(--green)";card.style.boxShadow="0 0 0 3px rgba(65,209,125,.32),0 0 18px rgba(65,209,125,.30)";el.classList.add("green-text")}
+function clearClasses(){Object.values(cards).forEach(c=>{c.classList.remove("primary","fdcs-glow-green","fdcs-glow-red");c.style.background="";c.style.borderColor="";c.style.boxShadow=""});Object.values(els).forEach(e=>{e.classList.remove("red-text","green-text","amber-text","cyan-text");e.style.color=""})}
+function highlightFdcsCard(id,color){ensureFdcsGlowStyle();const card=cards[id],el=els[id];if(!card||!el)return;card.classList.remove("fdcs-glow-green","fdcs-glow-red");if(color==="red"){card.style.borderColor="var(--red)";card.style.boxShadow="0 0 0 2px rgba(255,75,75,.28),0 0 10px rgba(255,75,75,.20)";el.classList.add("red-text");return}card.style.borderColor="var(--green)";card.style.boxShadow="";el.classList.add("green-text");card.classList.add("fdcs-glow-green")}
 
 function escapeHtml(value){
   return String(value ?? "").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
@@ -183,6 +196,7 @@ function updateResults(){
 
   if(apps.length&&appIsOpen){
     highlightFdcsCard("approach","green");
+    els.sector.classList.add("red-text");
     statusEl.textContent=`${upper} found`;
     statusEl.style.color="var(--green)";
   }else{

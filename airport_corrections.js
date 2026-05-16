@@ -1465,10 +1465,21 @@ const corrections = loadCorrections();
     const style = document.createElement("style");
     style.id = "zfwNotFoundButtonHighlightStyle";
     style.textContent = `
+      @keyframes zfwNotFoundButtonGlow {
+        0%, 100% {
+          border-color: var(--green);
+          box-shadow: 0 0 0 2px rgba(65, 209, 125, 0.20), 0 0 10px rgba(65, 209, 125, 0.18);
+        }
+
+        50% {
+          border-color: var(--green);
+          box-shadow: 0 0 0 4px rgba(65, 209, 125, 0.46), 0 0 24px rgba(65, 209, 125, 0.42);
+        }
+      }
+
       #correctionTools button.zfw-not-found-action {
-        border-color: var(--green) !important;
-        box-shadow: 0 0 0 3px rgba(65, 209, 125, 0.32), 0 0 18px rgba(65, 209, 125, 0.30) !important;
-        color: var(--green) !important;
+        border: 2px solid var(--green) !important;
+        animation: zfwNotFoundButtonGlow 2.4s ease-in-out infinite !important;
       }
     `;
     document.head.appendChild(style);

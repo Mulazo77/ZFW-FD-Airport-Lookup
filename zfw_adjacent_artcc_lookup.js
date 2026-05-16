@@ -96,13 +96,54 @@
     });
   }
 
+  function ensureAdjacentGlowStyle(){
+    if(document.getElementById("fdcsGlowStyle")) return;
+
+    const style = document.createElement("style");
+    style.id = "fdcsGlowStyle";
+    style.textContent = `
+      @property --fdcsGreenGlowSize{
+        syntax:"<length>";
+        inherits:false;
+        initial-value:10px;
+      }
+      @property --fdcsGreenGlowAlpha{
+        syntax:"<number>";
+        inherits:false;
+        initial-value:.20;
+      }
+      @keyframes fdcsGreenSlowFadeGlow{
+        0%,100%{
+          --fdcsGreenGlowSize:10px;
+          --fdcsGreenGlowAlpha:.20;
+        }
+        50%{
+          --fdcsGreenGlowSize:26px;
+          --fdcsGreenGlowAlpha:.46;
+        }
+      }
+      .fdcs-glow-green{
+        border-color:var(--green)!important;
+        box-shadow:
+          0 0 0 2px rgba(65,209,125,.30),
+          0 0 var(--fdcsGreenGlowSize) rgba(65,209,125,var(--fdcsGreenGlowAlpha)),
+          inset 0 0 0 1px rgba(65,209,125,.18)!important;
+        animation:fdcsGreenSlowFadeGlow 3.8s ease-in-out infinite!important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function highlightContact(){
+    ensureAdjacentGlowStyle();
+
     const contactCard = document.getElementById("contact")?.closest(".card");
     const contactValue = document.getElementById("contact");
 
     if(contactCard){
+      contactCard.classList.add("fdcs-glow-green");
       contactCard.style.borderColor = "var(--green)";
-      contactCard.style.boxShadow = "0 0 0 2px rgba(65,209,125,.24),0 0 14px rgba(65,209,125,.18)";
+      contactCard.style.boxShadow = "";
     }
 
     if(contactValue){

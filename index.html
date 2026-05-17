@@ -453,7 +453,7 @@
     }
 
     .omic-reference-panel h3 {
-      margin: 0 0 14px;
+      margin: 0 0 6px;
       color: var(--cyan);
       font-size: 1.25rem;
       font-weight: 900;
@@ -461,6 +461,16 @@
       letter-spacing: 0.4px;
       text-decoration: underline;
       text-underline-offset: 4px;
+    }
+
+    .omic-reference-subheader {
+      margin: 0 0 14px;
+      color: var(--cyan);
+      font-size: 0.95rem;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 0.25px;
+      text-decoration: none;
     }
 
     .omic-reference-panel ul {
@@ -474,10 +484,17 @@
 
     .omic-reference-panel li {
       margin-bottom: 12px;
+      min-height: 56px;
+    }
+
+    .omic-reference-panel li:nth-child(1),
+    .omic-reference-panel li:nth-child(2) {
+      min-height: 82px;
     }
 
     .omic-reference-panel li:last-child {
       margin-bottom: 0;
+      min-height: 0;
     }
 
     @media(max-width: 800px) {
@@ -1230,6 +1247,7 @@
                 + '<div class="omic-reference-grid">'
                 + '<section class="omic-reference-panel">'
                 + '<h3>Routine (UA)</h3>'
+                + '<div class="omic-reference-subheader">AISR Entry</div>'
                 + '<ul>'
                 + '<li>Enter the PIREP into the AISR fields as received through ERIDS. Airports can be entered as the 3 letter identifier. Do not add radial/dme to the METAR field.</li>'
                 + '<li>Use the search function if the controller used a navaid/waypoint in the PIREP to show the nearest weather station needed for the METAR field. Do not add radial/dme to the search bar.</li>'
@@ -1238,10 +1256,11 @@
                 + '</section>'
                 + '<section class="omic-reference-panel">'
                 + '<h3>Urgent (UUA)</h3>'
+                + '<div class="omic-reference-subheader">ERAM Entry</div>'
                 + '<ul>'
                 + '<li>When a new Urgent PIREP is received, click on the message to display the info.</li>'
                 + '<li>Enter the PIREP as written into the GI message template.</li>'
-                + '<li>Press the "Insert" key to swap between replacing and moving characters on input.</li>'
+                + '<li>Press the "Insert" key to swap between replacing and moving characters during input.</li>'
                 + '</ul>'
                 + '</section>'
                 + '</div>';

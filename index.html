@@ -52,7 +52,7 @@
       padding: 12px 14px;
       border: 1px solid #cbd5e1;
       border-radius: 10px;
-      font-size: 1rem;
+      font-size: 1.125rem;
       box-sizing: border-box;
     }
 
@@ -473,11 +473,16 @@
       text-decoration: none;
     }
 
+    .omic-reference-panel h3.urgent,
+    .omic-reference-subheader.urgent {
+      color: var(--red);
+    }
+
     .omic-reference-panel ul {
       margin: 0;
       padding-left: 22px;
       color: var(--text);
-      font-size: 1rem;
+      font-size: 1.125rem !important;
       line-height: 1.45;
       font-weight: 700;
     }
@@ -495,6 +500,22 @@
     .omic-reference-panel li:last-child {
       margin-bottom: 0;
       min-height: 0;
+    }
+
+
+    .omic-reference-panel h3.urgent,
+    .omic-reference-panel h3.omic-urgent-header {
+      color: var(--red) !important;
+    }
+
+    .omic-reference-subheader.urgent,
+    .omic-reference-subheader.omic-urgent-subheader {
+      color: var(--red) !important;
+      text-decoration: none !important;
+    }
+
+    .omic-reference-panel ul {
+      font-size: 1.125rem !important;
     }
 
     @media(max-width: 800px) {
@@ -1255,8 +1276,8 @@
                 + '</ul>'
                 + '</section>'
                 + '<section class="omic-reference-panel">'
-                + '<h3>Urgent (UUA)</h3>'
-                + '<div class="omic-reference-subheader">ERAM Entry</div>'
+                + '<h3 class="urgent omic-urgent-header" style="color: var(--red) !important;">Urgent (UUA)</h3>'
+                + '<div class="omic-reference-subheader urgent omic-urgent-subheader" style="color: var(--red) !important; text-decoration: none !important;">ERAM Entry</div>'
                 + '<ul>'
                 + '<li>When a new Urgent PIREP is received, click on the message to display the info.</li>'
                 + '<li>Enter the PIREP as written into the GI message template.</li>'
